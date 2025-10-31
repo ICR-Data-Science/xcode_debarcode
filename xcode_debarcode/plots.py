@@ -877,6 +877,7 @@ def plot_hamming_heatmap(adata: ad.AnnData,
         raise ValueError("Need at least 2 patterns for heatmap")
     
     patterns_list = [p for p, _ in sorted(pattern_counts.items(), key=lambda x: x[1], reverse=True)]
+    pattern_ranks = {p: i+1 for i, p in enumerate(patterns_list)}  # ← Store original ranks
     n = len(patterns_list)
     
     print(f"Computing Hamming distance matrix for {n} patterns...")
@@ -899,8 +900,8 @@ def plot_hamming_heatmap(adata: ad.AnnData,
         except ImportError:
             print(f"  scipy not available, skipping clustering")
     
-    labels = [f"#{i+1}" if use_rank_labels else f"#{i+1}: {{{', '.join(str(j+1) for j, b in enumerate(p) if b)}}}" 
-              for i, p in enumerate(patterns_list)]
+    labels = [f"#{pattern_ranks[p]}" if use_rank_labels else f"#{pattern_ranks[p]}: {{{', '.join(str(j+1) for j, b in enumerate(p) if b)}}}" 
+              for p in patterns_list]  
     
     hover = []
     for i in range(n):
@@ -909,8 +910,8 @@ def plot_hamming_heatmap(adata: ad.AnnData,
             pi = {k+1 for k, b in enumerate(patterns_list[i]) if b}
             pj = {k+1 for k, b in enumerate(patterns_list[j]) if b}
             row.append(
-                f"Pattern A (#{i+1}): {pi}<br>"
-                f"Pattern B (#{j+1}): {pj}<br>"
+                f"Pattern A (#{pattern_ranks[patterns_list[i]]}): {pi}<br>"  
+                f"Pattern B (#{pattern_ranks[patterns_list[j]]}): {pj}<br>"  
                 f"Hamming distance: {dist_matrix[i, j]}<br>"
                 f"Count A: {pattern_counts[patterns_list[i]]}<br>"
                 f"Count B: {pattern_counts[patterns_list[j]]}"
@@ -918,7 +919,8 @@ def plot_hamming_heatmap(adata: ad.AnnData,
         hover.append(row)
     
     display = dist_matrix.astype(float)
-    display[display > hamming_radius] = np.nan
+    grey_value = hamming_radius + 1
+    display[display > hamming_radius] = grey_value
     
     fig = go.Figure()
     fig.add_trace(
@@ -926,17 +928,27 @@ def plot_hamming_heatmap(adata: ad.AnnData,
             z=display,
             x=labels, y=labels,
             colorscale=[
-                [0.0, '#ffffff'], [0.2, '#e8f4f8'], [0.4, '#a8d8ea'],
-                [0.6, '#6eb5d0'], [0.8, '#3d8fb3'], [1.0, '#1e5a7d']
+                [0.0, '#ffffff'], 
+                [0.2 * hamming_radius/grey_value, '#e8f4f8'], 
+                [0.4 * hamming_radius/grey_value, '#a8d8ea'],
+                [0.6 * hamming_radius/grey_value, '#6eb5d0'], 
+                [0.8 * hamming_radius/grey_value, '#3d8fb3'], 
+                [hamming_radius/grey_value, '#1e5a7d'],
+                [hamming_radius/grey_value + 0.001, '#e5ecf6'], 
+                [1.0, '#e5ecf6']
             ],
             zmid=hamming_radius / 2,
-            zmin=0, zmax=hamming_radius,
+            zmin=0, zmax=grey_value,
+            xgap=1, 
+            ygap=1,  
             text=hover,
             hovertemplate='%{text}<extra></extra>',
             colorbar=dict(
                 title="Hamming<br>Distance",
                 thickness=15, len=0.7,
-                tickmode='linear', tick0=0, dtick=1
+                tickmode='array',  
+                tickvals=list(range(hamming_radius + 1)) + [grey_value],  
+                ticktext=list(range(hamming_radius + 1)) + ['Higher'] 
             )
         )
     )
@@ -947,7 +959,6 @@ def plot_hamming_heatmap(adata: ad.AnnData,
     if cluster_patterns:
         info.append("Hierarchically clustered")
     info.append(f"{n} patterns, min_count={min_count}")
-    
     fig.update_layout(
         title=dict(
             text=f"Hamming Distance Heatmap<br><sub>{' | '.join(info)}</sub>",
@@ -957,7 +968,8 @@ def plot_hamming_heatmap(adata: ad.AnnData,
         yaxis=dict(title="", autorange='reversed'),
         height=max(600, n * 30),
         width=max(700, n * 30),
-        hovermode='closest'
+        hovermode='closest',
+        plot_bgcolor='white' 
     )
     
     return fig
