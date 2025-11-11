@@ -58,9 +58,9 @@ def classify_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> 
     --------
     classification : str
         One of: 'valid', 
-        'invalid_doublet' (too many ON gates), 
-        'invalid_debris' (too few ON gates), 
-        'invalid_misc' (valid ON gates number but still invalid)
+        'invalid_doublet' (too many ON channels), 
+        'invalid_debris' (too few ON channels), 
+        'invalid_misc' (valid ON channels number but still invalid)
     """
     # Convert to list if needed
     if isinstance(pattern, str):

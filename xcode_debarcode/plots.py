@@ -9,7 +9,7 @@ from typing import Optional, List
 import warnings
 
 __all__ = [
-    "plot_gate_intensities", 
+    "plot_channel_intensities", 
     "plot_confidence_distribution", 
     "plot_hamming_graph",
     "plot_barcode_rank_histogram",
@@ -96,123 +96,9 @@ def plot_barcode_rank_histogram(adata: ad.AnnData,
     
     return fig
 
-def plot_barcode_rank_histogram(adata: ad.AnnData,
-                                assignment_col: str,
-                                top_n: int = 20,
-                                min_count: int = 1) -> go.Figure:
-    """Plot rank histogram of top barcode patterns.
-    
-    Shows the most frequent barcode patterns as a ranked bar chart.
-    Valid patterns shown in blue, invalid patterns in grey.
-    
-    Parameters:
-    -----------
-    adata : AnnData
-        Annotated data object
-    assignment_col : str
-        Column name with barcode assignments (string patterns)
-    top_n : int
-        Number of top patterns to show (default: 20)
-    min_count : int
-        Minimum count to include (default: 1)
-    
-    Returns:
-    --------
-    fig : plotly Figure
-        Interactive bar chart
-    """
-    from collections import Counter
-    from .barcode import is_valid_pattern
-    
-    # Validate column
-    if assignment_col not in adata.obs.columns:
-        raise ValueError(f"Assignment column '{assignment_col}' not found in adata.obs")
-    
-    # Get patterns and counts
-    patterns_str = adata.obs[assignment_col].values
-    patterns = [tuple(int(c) for c in p) for p in patterns_str]
-    pattern_counts = Counter(patterns)
-    
-    # Filter by min_count and get top N
-    filtered = {p: c for p, c in pattern_counts.items() if c >= min_count}
-    top_patterns = sorted(filtered.items(), key=lambda x: x[1], reverse=True)[:top_n]
-    
-    if len(top_patterns) == 0:
-        raise ValueError(f"No patterns with count >= {min_count}")
-    
-    # Prepare data
-    ranks = list(range(1, len(top_patterns) + 1))
-    counts = []
-    hover_texts = []
-    colors = []
-    
-    for rank, (pattern, count) in enumerate(top_patterns, 1):
-        counts.append(count)
-        
-        # Pattern as set
-        pattern_indices = [i+1 for i, bit in enumerate(pattern) if bit == 1]
-        
-        # Check validity
-        is_valid = is_valid_pattern(pattern)
-        
-        # Color: blue for valid, grey for invalid
-        colors.append('#3498db' if is_valid else '#95a5a6')
-        
-        # Hover text
-        hover_text = (
-            f"Rank: {rank}<br>"
-            f"Pattern: {set(pattern_indices)}<br>"
-            f"Count: {count}<br>"
-            f"Valid: {is_valid}"
-        )
-        hover_texts.append(hover_text)
-    
-    # Create figure
-    fig = go.Figure()
-    
-    fig.add_trace(
-        go.Bar(
-            x=ranks,
-            y=counts,
-            marker=dict(
-                color=colors,
-                line=dict(color='#2c3e50', width=1)
-            ),
-            customdata=hover_texts,
-            hovertemplate='%{customdata}<extra></extra>',
-            showlegend=False
-        )
-    )
-    
-    # Update layout
-    total_cells = sum(counts)
-    
-    fig.update_layout(
-        title=dict(
-            text=f"Barcode Pattern Rank Histogram<br>"
-                 f"<sub>Top {len(top_patterns)} patterns | {total_cells:,} cells | min_count={min_count}</sub>",
-            x=0.5,
-            xanchor='center'
-        ),
-        xaxis=dict(
-            title="Rank (by frequency)",
-            tickmode='linear',
-            tick0=1,
-            dtick=1 if len(top_patterns) <= 20 else 5
-        ),
-        yaxis=dict(
-            title="Count"
-        ),
-        hovermode='closest',
-        height=500,
-        showlegend=False
-    )
-    
-    return fig
 
-
-def plot_gate_intensities(adata: ad.AnnData,
-                         gates: Optional[List[str]] = None,
+def plot_channel_intensities(adata: ad.AnnData,
+                         channels: Optional[List[str]] = None,
                          layer: Optional[str] = None,
                          show_method_data: Optional[str] = None,
                          log_scale_x: bool = True,
@@ -220,7 +106,7 @@ def plot_gate_intensities(adata: ad.AnnData,
                          bins: int = 250,
                          xlim: Optional[tuple] = None,
                          xlim_percentile: tuple = (0.1, 99.9)) -> go.Figure:
-    """Plot interactive gate intensity distributions.
+    """Plot interactive channel intensity distributions.
     
     Creates interactive histograms for barcode channel intensities.
     Can overlay learned parameters from debarcoding methods.
@@ -229,8 +115,8 @@ def plot_gate_intensities(adata: ad.AnnData,
     -----------
     adata : AnnData
         Annotated data object
-    gates : list of str, optional
-        Specific gates to visualize. If None, shows all barcode channels.
+    channels : list of str, optional
+        Specific channels to visualize. If None, shows all barcode channels.
     layer : str, optional
         Layer to use for visualization. If None, uses .X (raw data).
         If using a transformed layer (e.g., 'log', 'arcsinh_cf5'), 
@@ -271,17 +157,17 @@ def plot_gate_intensities(adata: ad.AnnData,
     from .io import get_barcode_channels
     barcode_channels = get_barcode_channels(adata)
     
-    if gates is None:
-        gates_to_plot = barcode_channels
+    if channels is None:
+        channels_to_plot = barcode_channels
     else:
-        invalid = set(gates) - set(barcode_channels)
+        invalid = set(channels) - set(barcode_channels)
         if invalid:
-            raise ValueError(f"Invalid gates (not barcode channels): {invalid}")
-        gates_to_plot = gates
+            raise ValueError(f"Invalid channels (not barcode channels): {invalid}")
+        channels_to_plot = channels
     
-    n_gates = len(gates_to_plot)
-    n_cols = min(6, n_gates)
-    n_rows = int(np.ceil(n_gates / n_cols))
+    n_channels = len(channels_to_plot)
+    n_cols = min(6, n_channels)
+    n_rows = int(np.ceil(n_channels / n_cols))
     
     is_transformed = (layer is not None and layer in adata.layers and 
                      (layer.startswith('log') or layer.startswith('arcsinh')))
@@ -296,13 +182,13 @@ def plot_gate_intensities(adata: ad.AnnData,
     fig = make_subplots(
         rows=n_rows,
         cols=n_cols,
-        subplot_titles=gates_to_plot,
+        subplot_titles=channels_to_plot,
         vertical_spacing=0.12,
         horizontal_spacing=0.08
     )
     
     method_type = None
-    gate_params_dict = None
+    channel_params_dict = None
     prob_thresh = 0.5
     
     if show_method_data:
@@ -325,39 +211,39 @@ def plot_gate_intensities(adata: ad.AnnData,
             
             if base_method == 'gmm':
                 method_type = 'gmm'
-                gate_params_dict = method_info.get('gate_params')
+                channel_params_dict = method_info.get('channel_params')
                 prob_thresh = method_info.get('prob_thresh', 0.5)
             
             elif base_method == 'pc_gmm':
                 method_type = 'pc_gmm'
-                gate_params_dict = method_info.get('gate_params')
+                channel_params_dict = method_info.get('channel_params')
             
             elif base_method == 'manual':
                 method_type = 'manual'
-                gate_params_dict = method_info.get('gate_params')
+                channel_params_dict = method_info.get('channel_params')
             
             elif base_method == 'auto':
                 auto_method_used = method_info.get('auto_method_used', 'pc_gmm')
                 if auto_method_used == 'pc_gmm':
                     method_type = 'pc_gmm'
-                    gate_params_dict = method_info.get('gate_params')
+                    channel_params_dict = method_info.get('channel_params')
                 elif auto_method_used == 'scoring':
                     method_type = None
-                    gate_params_dict = None
+                    channel_params_dict = None
             
             elif base_method in ['premessa', 'scoring']:
                 method_type = None
-                gate_params_dict = None
+                channel_params_dict = None
     
-    for idx, gate in enumerate(gates_to_plot):
+    for idx, channel in enumerate(channels_to_plot):
         row = idx // n_cols + 1
         col = idx % n_cols + 1
         
         if layer is not None and layer in adata.layers:
-            gate_idx = adata.var_names.get_loc(gate)
-            values = adata.layers[layer][:, gate_idx].flatten()
+            channel_idx = adata.var_names.get_loc(channel)
+            values = adata.layers[layer][:, channel_idx].flatten()
         else:
-            values = adata[:, gate].X.flatten()
+            values = adata[:, channel].X.flatten()
         
         if len(values) == 0:
             continue
@@ -380,7 +266,7 @@ def plot_gate_intensities(adata: ad.AnnData,
             go.Histogram(
                 x=values_in_range,
                 nbinsx=bins,
-                name=gate,
+                name=channel,
                 showlegend=False,
                 marker=dict(
                     color='#3498db',
@@ -396,11 +282,11 @@ def plot_gate_intensities(adata: ad.AnnData,
         ymax = counts.max() if len(counts) > 0 and counts.max() > 0 else 1
         
         # Add method overlays
-        if gate_params_dict is not None and method_type is not None:
-            gate_idx_in_params = list(barcode_channels).index(gate)
+        if channel_params_dict is not None and method_type is not None:
+            channel_idx_in_params = list(barcode_channels).index(channel)
             
-            if str(gate_idx_in_params) in gate_params_dict:
-                params = gate_params_dict[str(gate_idx_in_params)]
+            if str(channel_idx_in_params) in channel_params_dict:
+                params = channel_params_dict[str(channel_idx_in_params)]
                 
                 if params is None:
                     continue
@@ -488,10 +374,10 @@ def plot_gate_intensities(adata: ad.AnnData,
             col=col
         )
     
-    title_parts = ["Gate Intensity Distributions"]
+    title_parts = ["Channel Intensity Distributions"]
     if layer:
         title_parts.append(f"(layer: {layer})")
-    if show_method_data and gate_params_dict is not None:
+    if show_method_data and channel_params_dict is not None:
         title_parts.append(f"[{show_method_data}]")
         if method_type == 'gmm':
             title_parts[-1] = f"[{show_method_data}: GMM, threshold={prob_thresh}]"

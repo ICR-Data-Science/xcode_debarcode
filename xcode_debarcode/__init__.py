@@ -9,23 +9,23 @@ Public sub-modules
     debarcode      : Debarcoding methods (GMM, PreMessa, PC-GMM, Scoring, Auto)
     postprocessing : Confidence filtering, Hamming clustering, Mahalanobis filtering
     barcode        : Pattern analysis utilities
-    plots          : Interactive visualizations
+    plots          : Interactive visualisations
     simulate       : Synthetic data generation
     
 Methods Overview
 ---------------
     GMM (Gaussian Mixture Model):
-        - Gate-level 2-component GMM
-        - Independent per-gate classification
-        - Confidence = product of gate probabilities
+        - Channel-level 2-component GMM
+        - Independent per-channel classification
+        - Confidence = product of channel probabilities
         
     PreMessa:
-        - Top-4 gate selection per barcode block
+        - Top-4 channel selection per barcode block
         - Separation-based confidence scoring
         - Confidence based on separation between ON and OFF intensities
         
     PC-GMM (Pattern-Constrained GMM):
-        - Gate-level GMMs + valid pattern constraints
+        - Channel-level GMMs + valid pattern constraints
         - Maximum likelihood pattern selection
         - Block-wise probabilistic decoding
         
@@ -43,11 +43,11 @@ Typical Workflow
 ----------------
 1. Load data: `adata = xd.io.read_data('data.fcs')`
 2. Map channels: `adata = xd.io.map_channels(adata, mapping_dict)`
-3. Transform: `adata = xd.preprocessing.transform(adata, method='arcsinh')`
-4. Debarcode: `adata = xd.debarcode.debarcode(adata, method='pc_gmm')`
-5. Hamming cluster: `adata = xd.postprocessing.hamming_cluster(adata)`
-6. Filter: `adata = xd.postprocessing.filter_by_confidence(adata)`
-7. Visualize: `xd.plots.plot_confidence_distribution(adata)`
+3. Transform: `adata = xd.preprocessing.transform(adata, method='log')`
+4. Debarcode: `adata = xd.debarcode.debarcode(adata, method='pc_gmm', layer='log')`
+5. Hamming cluster: `adata = xd.postprocessing.hamming_cluster(adata, assignment_col='pc_gmm_assignment', confidence_col='pc_gmm_confidence')`
+6. Filter: `adata = xd.postprocessing.filter_by_confidence(adata, confidence_col='pc_gmm_hamming_confidence')`
+7. Visualize: `xd.plots.plot_barcode_rank_histogram(adata, assignment_col='pc_gmm_hamming_assignment')`
 
 Or use the automated pipeline:
 `adata = xd.debarcode.debarcoding_pipeline(adata, method='auto')`
@@ -63,7 +63,7 @@ from . import io, preprocessing, debarcode, postprocessing, barcode, plots, simu
 try:
     __version__ = metadata.version(__name__)
 except metadata.PackageNotFoundError:
-    __version__ = "0.0.dev0"
+    __version__ = "0.1.0"
 
 __all__ = [
     "io", "preprocessing", "debarcode", "postprocessing", 

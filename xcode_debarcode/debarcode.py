@@ -33,8 +33,8 @@ def _get_unique_method_name(adata: ad.AnnData, method: str, custom_name: Optiona
     return name
 
 
-def _fit_gmm_gate(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dict]:
-    """Fit 2-component GMM to single gate and extract parameters."""
+def _fit_gmm_channel(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dict]:
+    """Fit 2-component GMM to single channel and extract parameters."""
     valid_mask = x > min_int
     if valid_mask.sum() < 20:
         return None
@@ -64,32 +64,32 @@ def _fit_gmm_gate(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dict]:
 
 def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """PC-GMM: Pattern-Constrained Gaussian Mixture Model."""
-    n_cells, n_gates = X.shape
-    n_blocks = n_gates // 9
+    n_cells, n_channels = X.shape
+    n_blocks = n_channels // 9
     
     if verbose:
-        print(f"PC-GMM: Processing {n_gates} channels, {n_cells} cells (n_init={n_init})")
+        print(f"PC-GMM: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
     
-    gate_params = {}
-    failed_gates = []
+    channel_params = {}
+    failed_channels = []
     
-    for g in range(n_gates):
-        params = _fit_gmm_gate(X[:, g], min_int, n_init)
+    for g in range(n_channels):
+        params = _fit_gmm_channel(X[:, g], min_int, n_init)
         if params:
-            params['gate_index'] = g
+            params['channel_index'] = g
             del params['gmm'], params['pos_idx']
         else:
-            failed_gates.append(g)
-        gate_params[str(g)] = params
+            failed_channels.append(g)
+        channel_params[str(g)] = params
     
     valid_patterns = _generate_4_of_9_patterns(n_blocks=1)
-    barcodes = np.zeros((n_cells, n_gates), dtype=int)
+    barcodes = np.zeros((n_cells, n_channels), dtype=int)
     confidences = np.ones(n_cells)
     
     for b in range(n_blocks):
         start, end = 9*b, 9*(b+1)
         
-        if any(g in failed_gates for g in range(start, end)):
+        if any(g in failed_channels for g in range(start, end)):
             continue
         
         X_block = X[:, start:end]
@@ -97,7 +97,7 @@ def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool 
         log_like_on = np.zeros((n_cells, 9))
         
         for g in range(9):
-            p = gate_params[str(start + g)]
+            p = channel_params[str(start + g)]
             if p is None:
                 continue
             
@@ -127,52 +127,52 @@ def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool 
     if verbose:
         print(f"PC-GMM: Complete. Mean confidence: {confidences.mean():.4f}")
     
-    return barcodes, confidences, gate_params
+    return barcodes, confidences, channel_params
 
 
 def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: float = 0.5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """GMM: Gaussian Mixture Model."""
-    n_cells, n_gates = X.shape
+    n_cells, n_channels = X.shape
     
     if verbose:
-        print(f"GMM: Processing {n_gates} channels, {n_cells} cells (n_init={n_init})")
+        print(f"GMM: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
     
-    gate_params = {}
-    barcodes = np.zeros((n_cells, n_gates), dtype=int)
-    gate_probs = np.ones((n_cells, n_gates))
+    channel_params = {}
+    barcodes = np.zeros((n_cells, n_channels), dtype=int)
+    channel_probs = np.ones((n_cells, n_channels))
     
-    for g in range(n_gates):
-        params = _fit_gmm_gate(X[:, g], min_int, n_init)
+    for g in range(n_channels):
+        params = _fit_gmm_channel(X[:, g], min_int, n_init)
         if params:
-            params['gate_index'] = g
+            params['channel_index'] = g
             gmm, pos_idx = params.pop('gmm'), params.pop('pos_idx')
             params['threshold'] = float(params['mu_off'] + (params['mu_on'] - params['mu_off']) * prob_thresh)
-            gate_params[str(g)] = params
+            channel_params[str(g)] = params
             
             probs = gmm.predict_proba(X[:, g].reshape(-1, 1))
             pos_probs = probs[:, pos_idx]
             barcodes[:, g] = (pos_probs >= prob_thresh).astype(int)
-            gate_probs[:, g] = np.where(barcodes[:, g] == 1, pos_probs, 1 - pos_probs)
+            channel_probs[:, g] = np.where(barcodes[:, g] == 1, pos_probs, 1 - pos_probs)
         else:
-            gate_params[str(g)] = None
+            channel_params[str(g)] = None
     
-    confidences = np.prod(gate_probs, axis=1)
+    confidences = np.prod(channel_probs, axis=1)
     
     if verbose:
         print(f"GMM: Complete. Mean confidence: {confidences.mean():.4f}")
     
-    return barcodes, confidences, gate_params
+    return barcodes, confidences, channel_params
 
 
 def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """PreMessa: Top-4 selection method."""
-    n_cells, n_gates = X.shape
-    n_blocks = n_gates // 9
+    n_cells, n_channels = X.shape
+    n_blocks = n_channels // 9
     
     if verbose:
-        print(f"PreMessa: Processing {n_gates} channels, {n_cells} cells")
+        print(f"PreMessa: Processing {n_channels} channels, {n_cells} cells")
     
-    barcodes = np.zeros((n_cells, n_gates), dtype=int)
+    barcodes = np.zeros((n_cells, n_channels), dtype=int)
     confidences = np.ones(n_cells)
     
     for b in range(n_blocks):
@@ -197,14 +197,14 @@ def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarr
 
 def _scoring(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """Scoring: Correlation-based pattern matching."""
-    n_cells, n_gates = X.shape
-    n_blocks = n_gates // 9
+    n_cells, n_channels = X.shape
+    n_blocks = n_channels // 9
     
     if verbose:
-        print(f"Scoring: Processing {n_gates} channels, {n_cells} cells")
+        print(f"Scoring: Processing {n_channels} channels, {n_cells} cells")
     
     valid_patterns = _generate_4_of_9_patterns(n_blocks=1)
-    barcodes = np.zeros((n_cells, n_gates), dtype=int)
+    barcodes = np.zeros((n_cells, n_channels), dtype=int)
     overall_confidences = np.ones(n_cells)
     
     for b in range(n_blocks):
@@ -231,41 +231,41 @@ def _auto(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, mean_conf_switch
     if verbose:
         print("Auto: Trying PC-GMM first...")
     
-    barcodes, confidences, gate_params = _pc_gmm(X, n_init, min_int, verbose=False)
+    barcodes, confidences, channel_params = _pc_gmm(X, n_init, min_int, verbose=False)
     mean_conf = confidences.mean()
     
     if mean_conf >= mean_conf_switch:
         if verbose:
             print(f"Auto: Using PC-GMM (mean confidence: {mean_conf:.4f})")
-        return barcodes, confidences, gate_params, 'pc_gmm'
+        return barcodes, confidences, channel_params, 'pc_gmm'
     else:
         if verbose:
             print(f"Auto: PC-GMM low confidence ({mean_conf:.4f}), using Scoring...")
-        barcodes, confidences, gate_params = _scoring(X, verbose=False)
-        return barcodes, confidences, gate_params, 'scoring'
+        barcodes, confidences, channel_params = _scoring(X, verbose=False)
+        return barcodes, confidences, channel_params, 'scoring'
 
 
 def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """Manual: Threshold-based gating."""
-    n_cells, n_gates = X.shape
+    n_cells, n_channels = X.shape
     
     if verbose:
-        print(f"Manual: Processing {n_gates} channels, {n_cells} cells")
+        print(f"Manual: Processing {n_channels} channels, {n_cells} cells")
     
-    if len(thresholds) != n_gates:
-        raise ValueError(f"Number of thresholds ({len(thresholds)}) must match number of gates ({n_gates})")
+    if len(thresholds) != n_channels:
+        raise ValueError(f"Number of thresholds ({len(thresholds)}) must match number of channels ({n_channels})")
     
     barcodes = (X > np.array(thresholds)).astype(int)
     
     from .barcode import is_valid_pattern
     confidences = np.array([1.0 if is_valid_pattern(b) else 0.5 for b in barcodes])
-    gate_params = {str(g): {'gate_index': g, 'threshold': thresholds[g]} for g in range(n_gates)}
+    channel_params = {str(g): {'channel_index': g, 'threshold': thresholds[g]} for g in range(n_channels)}
     
     if verbose:
         n_valid = confidences.sum()
         print(f"Manual: Complete. Valid patterns: {int(n_valid)}/{n_cells}")
     
-    return barcodes, confidences, gate_params
+    return barcodes, confidences, channel_params
 
 
 def debarcode(adata: ad.AnnData,
@@ -359,9 +359,9 @@ def debarcode(adata: ad.AnnData,
     
     result = methods[method]()
     if method == 'auto':
-        barcodes, confidences, gate_params, auto_method_used = result
+        barcodes, confidences, channel_params, auto_method_used = result
     else:
-        (barcodes, confidences, gate_params), _ = result
+        (barcodes, confidences, channel_params), _ = result
         auto_method_used = None
     
     pattern_strings = [''.join(map(str, b)) for b in barcodes]
@@ -371,10 +371,10 @@ def debarcode(adata: ad.AnnData,
     if 'debarcoding' not in adata.uns:
         adata.uns['debarcoding'] = {}
     
-    for gate_idx, params in gate_params.items():
-        if params and gate_idx != 'method':
+    for channel_idx, params in channel_params.items():
+        if params and channel_idx != 'method':
             try:
-                idx = int(gate_idx)
+                idx = int(channel_idx)
                 if idx < len(barcode_channels):
                     params['channel'] = barcode_channels[idx]
             except (ValueError, TypeError):
@@ -389,12 +389,12 @@ def debarcode(adata: ad.AnnData,
         'min_int': min_int if method in ['gmm', 'pc_gmm', 'auto'] else None,
         'prob_thresh': prob_thresh if method == 'gmm' else None,
         'mean_conf_switch': mean_conf_switch if method == 'auto' else None,
-        'thresholds': thresholds if method == 'manual' else ([gate_params[str(g)]['threshold'] if gate_params.get(str(g)) else None for g in range(len(barcode_channels))] if method == 'gmm' else None),
+        'thresholds': thresholds if method == 'manual' else ([channel_params[str(g)]['threshold'] if channel_params.get(str(g)) else None for g in range(len(barcode_channels))] if method == 'gmm' else None),
         'n_cells': len(adata),
-        'n_gates': len(barcode_channels),
+        'n_channels': len(barcode_channels),
         'barcode_channels': barcode_channels,
         'mean_confidence': float(confidences.mean()),
-        'gate_params': gate_params
+        'channel_params': channel_params
     }
     
     if auto_method_used:

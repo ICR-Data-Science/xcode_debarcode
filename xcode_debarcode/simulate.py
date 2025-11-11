@@ -8,10 +8,10 @@ from .barcode import _generate_4_of_9_patterns
 __all__ = ["simulate_cytof_barcodes", "analyze_simulation"]
 
 
-def _generate_gate_parameters(n_gates: int, rng: np.random.RandomState) -> Dict:
-    """Generate random gate parameters for simulation."""
+def _generate_channel_parameters(n_channels: int, rng: np.random.RandomState) -> Dict:
+    """Generate random channel parameters for simulation."""
     params = {}
-    for g in range(n_gates):
+    for g in range(n_channels):
         mu_off = rng.uniform(0.7, 1.8)
         separation = rng.uniform(1.0, 1.8)
         params[f's_{g+1}'] = {
@@ -25,9 +25,9 @@ def _generate_gate_parameters(n_gates: int, rng: np.random.RandomState) -> Dict:
 
 def simulate_cytof_barcodes(
     n_cells: int = 10000,
-    n_gates: int = 27,
+    n_channels: int = 27,
     n_barcodes: Optional[int] = None,
-    gate_params: Optional[Dict] = None,
+    channel_params: Optional[Dict] = None,
     unbarcoded_fraction: float = 0.00,
     alpha: float = 1.0,
     random_seed: Optional[int] = None,
@@ -42,12 +42,12 @@ def simulate_cytof_barcodes(
     -----------
     n_cells : int
         Total number of cells to simulate (default: 10000)
-    n_gates : int
+    n_channels : int
         Number of barcode channels (default: 27)
     n_barcodes : int, optional
         Number of unique barcodes to use
-    gate_params : dict, optional
-        Custom gate parameters
+    channel_params : dict, optional
+        Custom channel parameters
     unbarcoded_fraction : float
         Fraction of cells without barcode (default: 0.0)
     alpha : float
@@ -62,8 +62,8 @@ def simulate_cytof_barcodes(
     adata : AnnData
         Simulated raw intensity data with ground truth
     """
-    if n_gates % 9 != 0:
-        raise ValueError(f"n_gates must be multiple of 9, got {n_gates}")
+    if n_channels % 9 != 0:
+        raise ValueError(f"n_channels must be multiple of 9, got {n_channels}")
     
     if not 0 <= unbarcoded_fraction < 1:
         raise ValueError(f"unbarcoded_fraction must be in [0, 1), got {unbarcoded_fraction}")
@@ -74,14 +74,14 @@ def simulate_cytof_barcodes(
         print("="*80)
         print("SIMULATING CYTOF BARCODE DATA")
         print("="*80)
-        print(f"\nCells: {n_cells:,}, Gates: {n_gates}, Blocks: {n_gates // 9}")
+        print(f"\nCells: {n_cells:,}, channels: {n_channels}, Blocks: {n_channels // 9}")
         print(f"Unbarcoded: {unbarcoded_fraction:.1%}, Alpha: {alpha}, Seed: {random_seed}")
     
-    gate_params = gate_params or _generate_gate_parameters(n_gates, rng)
-    if len(gate_params) != n_gates:
-        raise ValueError(f"gate_params must have {n_gates} gates, got {len(gate_params)}")
+    channel_params = channel_params or _generate_channel_parameters(n_channels, rng)
+    if len(channel_params) != n_channels:
+        raise ValueError(f"channel_params must have {n_channels} channels, got {len(channel_params)}")
     
-    n_blocks = n_gates // 9
+    n_blocks = n_channels // 9
     all_patterns = _generate_4_of_9_patterns(n_blocks=n_blocks)
     n_total_patterns = len(all_patterns)
     
@@ -111,19 +111,19 @@ def simulate_cytof_barcodes(
         unique_used = len(np.unique(cell_pattern_indices))
         print(f"Unique barcodes used: {unique_used}/{n_barcodes}")
     
-    X = np.zeros((n_cells, n_gates))
+    X = np.zeros((n_cells, n_channels))
     
     for i in range(n_barcoded):
         pattern = cell_patterns[i]
-        for g in range(n_gates):
-            params = gate_params[f's_{g+1}']
+        for g in range(n_channels):
+            params = channel_params[f's_{g+1}']
             mu = params['mu_on'] if pattern[g] == 1 else params['mu_off']
             sigma = params['sigma_on'] if pattern[g] == 1 else params['sigma_off']
             X[i, g] = rng.normal(mu, sigma)
     
     for i in range(n_barcoded, n_cells):
-        for g in range(n_gates):
-            params = gate_params[f's_{g+1}']
+        for g in range(n_channels):
+            params = channel_params[f's_{g+1}']
             X[i, g] = rng.normal(params['mu_off'], params['sigma_off'] * 1.5)
     
     X = np.maximum(np.exp(X) - 1, 0)
@@ -147,7 +147,7 @@ def simulate_cytof_barcodes(
             ground_truth_patterns.append("unbarcoded")
             ground_truth_labels.append("unbarcoded")
     
-    barcode_channels = [f's_{i+1}' for i in range(n_gates)]
+    barcode_channels = [f's_{i+1}' for i in range(n_channels)]
     
     adata = ad.AnnData(
         X=X,
@@ -174,7 +174,7 @@ def simulate_cytof_barcodes(
     
     adata.uns['simulation'] = {
         'n_cells': n_cells,
-        'n_gates': n_gates,
+        'n_channels': n_channels,
         'n_blocks': n_blocks,
         'n_total_valid_patterns': n_total_patterns,
         'n_barcodes': n_barcodes,
@@ -184,7 +184,7 @@ def simulate_cytof_barcodes(
         'unbarcoded_fraction': unbarcoded_fraction,
         'alpha': alpha,
         'random_seed': random_seed,
-        'gate_params': gate_params,
+        'channel_params': channel_params,
         'selected_pattern_indices': selected_indices.tolist(),
         'barcode_statistics': {
             'n_unique_used': len(barcode_counts),
