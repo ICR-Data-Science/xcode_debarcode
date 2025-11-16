@@ -75,7 +75,7 @@ def write_data(adata: ad.AnnData, path: str, **kwargs):
 def load_mapping(path: str) -> pd.DataFrame:
     """Load channel mapping from CSV file.
     
-    Expected columns: Element, Isotope, Sequence No., FCS_Channel_Name
+    Expected columns: bc_sequence, channel_name
     
     Parameters:
     -----------
@@ -88,7 +88,7 @@ def load_mapping(path: str) -> pd.DataFrame:
         Channel mapping dataframe
     """
     df = pd.read_csv(path)
-    required = {"Element", "Isotope", "Sequence No.", "FCS_Channel_Name"}
+    required = {"bc_sequence", "channel_name"}
     missing = required - set(df.columns)
     if missing:
         raise ValueError(f"Mapping file missing columns: {missing}")
@@ -134,13 +134,13 @@ def map_channels(adata: ad.AnnData,
     if isinstance(mapping, str):
         mapping_df = load_mapping(mapping)
         rename_dict = {
-            row["FCS_Channel_Name"]: f"s_{row['Sequence No.']}"
+            row["channel_name"]: f"s_{row['bc_sequence']}"
             for _, row in mapping_df.iterrows()
         }
         mapping_source = 'csv_file'
     elif isinstance(mapping, pd.DataFrame):
         rename_dict = {
-            row["FCS_Channel_Name"]: f"s_{row['Sequence No.']}"
+            row["channel_name"]: f"s_{row['bc_sequence']}"
             for _, row in mapping.iterrows()
         }
         mapping_source = 'dataframe'
@@ -220,6 +220,11 @@ def get_barcode_channels(adata: ad.AnnData) -> List[str]:
     if len(barcode_channels) == 0:
         raise ValueError(
             "No barcode channels found. "
+            "Please run map_channels() first to set up barcode channels, "
+            "or ensure channels follow s_* naming pattern."
+        )
+    
+    return barcode_channels
             "Please run map_channels() first to set up barcode channels, "
             "or ensure channels follow s_* naming pattern."
         )
