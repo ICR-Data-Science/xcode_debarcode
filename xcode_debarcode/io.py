@@ -26,13 +26,13 @@ def read_data(path: str) -> ad.AnnData:
         return ad.read_h5ad(path)
     elif path.suffix.lower() == '.fcs':
         try:
-            from pytometry.io import read_fcs
-            return read_fcs(str(path))
+            import readfcs
         except ImportError:
             raise ImportError(
-                "pytometry is required to read FCS files. "
-                "Install it with: pip install pytometry"
+                "readfcs is required to read FCS files. "
+                "Install it with: pip install readfcs"
             )
+        return readfcs.read(path)
     else:
         raise ValueError(
             f"Unsupported file format: {path.suffix}. "
@@ -57,14 +57,10 @@ def write_data(adata: ad.AnnData, path: str, **kwargs):
     if path.suffix.lower() == '.h5ad':
         adata.write_h5ad(path, **kwargs)
     elif path.suffix.lower() == '.fcs':
-        try:
-            from pytometry.io import write_fcs
-            write_fcs(adata, str(path), **kwargs)
-        except ImportError:
-            raise ImportError(
-                "pytometry is required to write FCS files. "
-                "Install it with: pip install pytometry"
-            )
+        raise NotImplementedError(
+            "FCS output is not supported. Use .h5ad format instead.\n"
+            "H5AD preserves all metadata, layers, and transformations.\n"
+        )
     else:
         raise ValueError(
             f"Unsupported file format: {path.suffix}. "
@@ -220,11 +216,6 @@ def get_barcode_channels(adata: ad.AnnData) -> List[str]:
     if len(barcode_channels) == 0:
         raise ValueError(
             "No barcode channels found. "
-            "Please run map_channels() first to set up barcode channels, "
-            "or ensure channels follow s_* naming pattern."
-        )
-    
-    return barcode_channels
             "Please run map_channels() first to set up barcode channels, "
             "or ensure channels follow s_* naming pattern."
         )
