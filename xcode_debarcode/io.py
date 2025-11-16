@@ -4,7 +4,7 @@ import anndata as ad
 from pathlib import Path
 from typing import Union, Dict, List
 
-__all__ = ["read_data", "write_data", "load_mapping", "map_channels", "get_barcode_channels"]
+__all__ = ["read_data", "write_data", "map_channels", "get_barcode_channels"]
 
 
 def read_data(path: str) -> ad.AnnData:
@@ -71,28 +71,6 @@ def write_data(adata: ad.AnnData, path: str, **kwargs):
             "Supported formats: .h5ad, .fcs"
         )
 
-
-def load_mapping(path: str) -> pd.DataFrame:
-    """Load channel mapping from CSV file.
-    
-    Expected columns: bc_sequence, channel_name
-    
-    Parameters:
-    -----------
-    path : str
-        Path to mapping CSV file
-    
-    Returns:
-    --------
-    mapping_df : DataFrame
-        Channel mapping dataframe
-    """
-    df = pd.read_csv(path)
-    required = {"bc_sequence", "channel_name"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Mapping file missing columns: {missing}")
-    return df
 
 
 def map_channels(adata: ad.AnnData, 
@@ -220,11 +198,6 @@ def get_barcode_channels(adata: ad.AnnData) -> List[str]:
     if len(barcode_channels) == 0:
         raise ValueError(
             "No barcode channels found. "
-            "Please run map_channels() first to set up barcode channels, "
-            "or ensure channels follow s_* naming pattern."
-        )
-    
-    return barcode_channels
             "Please run map_channels() first to set up barcode channels, "
             "or ensure channels follow s_* naming pattern."
         )
