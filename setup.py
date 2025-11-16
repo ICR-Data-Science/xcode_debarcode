@@ -19,7 +19,7 @@ setup(
         'scikit-learn>=1.0.0',
         'plotly>=5.0.0',
         'kaleido>=0.2.0',
-        'pytometry>=0.1.0',
+        'readfcs',
     ],
     python_requires='>=3.8',
     classifiers=[
