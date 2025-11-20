@@ -428,7 +428,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         apply_confidence_filter: bool = True,
                         confidence_filter_method: Optional[str] = 'percentile',
                         confidence_value: Optional[float] = 90,
-                        confidence_filter_or_flag: str = 'filter',
+                        confidence_filter_or_flag: str = 'flag',
                         inplace: bool = True,
                         verbose: bool = True) -> ad.AnnData:
     """Complete debarcoding pipeline with transformation and postprocessing.
