@@ -221,7 +221,3 @@ def get_barcode_channels(adata: ad.AnnData) -> List[str]:
         )
     
     return barcode_channels
-            "or ensure channels follow s_* naming pattern."
-        )
-    
-    return barcode_channels
