@@ -396,11 +396,11 @@ def plot_channel_intensities(adata: ad.AnnData,
 def plot_confidence_distribution(adata: ad.AnnData,
                                 confidence_col: str,
                                 bins: int = 100,
-                                show_threshold: bool = True) -> go.Figure:
+                                show_threshold: str = None) -> go.Figure:
     """Plot interactive confidence score distribution.
     
     Creates an interactive histogram of confidence scores.
-    Shows all thresholds applied to this confidence column.
+    Shows the specified threshold if provided.
     
     Parameters:
     -----------
@@ -410,8 +410,8 @@ def plot_confidence_distribution(adata: ad.AnnData,
         Name of confidence column in adata.obs
     bins : int
         Number of histogram bins (default: 100)
-    show_threshold : bool
-        Show threshold lines if available (default: True)
+    show_threshold : str
+        Filter name to display threshold line for (default: None)
     
     Returns:
     --------
@@ -439,56 +439,54 @@ def plot_confidence_distribution(adata: ad.AnnData,
     ymax = hist_counts.max() if len(hist_counts) > 0 else 1
     
     if show_threshold and 'confidence_filtering' in adata.uns:
-        filters = []
-        for filter_name, filter_info in adata.uns['confidence_filtering'].items():
-            if filter_info.get('confidence_col') == confidence_col:
-                filters.append((filter_name, filter_info))
-        
-        for filter_name, filter_info in filters:
-            threshold = filter_info.get('threshold')
-            method = filter_info.get('method', 'unknown')
+        if show_threshold in adata.uns['confidence_filtering']:
+            filter_info = adata.uns['confidence_filtering'][show_threshold]
             
-            if threshold is not None:
-                fig.add_trace(
-                    go.Scatter(
-                        x=[threshold, threshold],
-                        y=[0, ymax],
-                        mode='lines',
-                        line=dict(color='#f39c12', dash='dash', width=2),
-                        showlegend=len(filters) > 1,
-                        hovertemplate=f'<b>{filter_name}</b><br>Method: {method}<br>Threshold: {threshold:.4f}<extra></extra>',
-                        name=f'{filter_name} ({method})'
-                    )
-                )
+            if filter_info.get('confidence_col') == confidence_col:
+                threshold = filter_info.get('threshold')
+                method = filter_info.get('method', 'unknown')
                 
-                if 'gmm_params' in filter_info:
-                    gmm_params = filter_info['gmm_params']
-                    if 'means' in gmm_params and len(gmm_params['means']) == 2:
-                        means = gmm_params['means']
-                        
-                        fig.add_trace(
-                            go.Scatter(
-                                x=[means[0], means[0]],
-                                y=[0, ymax],
-                                mode='lines',
-                                line=dict(color='#e74c3c', dash='dot', width=1.5),
-                                showlegend=False,
-                                hovertemplate=f'<b>{filter_name}</b><br>Low mean: {means[0]:.4f}<extra></extra>',
-                                name='Low mean'
-                            )
+                if threshold is not None:
+                    fig.add_trace(
+                        go.Scatter(
+                            x=[threshold, threshold],
+                            y=[0, ymax],
+                            mode='lines',
+                            line=dict(color='#f39c12', dash='dash', width=2),
+                            showlegend=True,
+                            hovertemplate=f'<b>{show_threshold}</b><br>Method: {method}<br>Threshold: {threshold:.4f}<extra></extra>',
+                            name=f'{show_threshold} ({method})'
                         )
-                        
-                        fig.add_trace(
-                            go.Scatter(
-                                x=[means[1], means[1]],
-                                y=[0, ymax],
-                                mode='lines',
-                                line=dict(color='#2ca02c', dash='dot', width=1.5),
-                                showlegend=False,
-                                hovertemplate=f'<b>{filter_name}</b><br>High mean: {means[1]:.4f}<extra></extra>',
-                                name='High mean'
+                    )
+                    
+                    if 'gmm_params' in filter_info:
+                        gmm_params = filter_info['gmm_params']
+                        if 'means' in gmm_params and len(gmm_params['means']) == 2:
+                            means = gmm_params['means']
+                            
+                            fig.add_trace(
+                                go.Scatter(
+                                    x=[means[0], means[0]],
+                                    y=[0, ymax],
+                                    mode='lines',
+                                    line=dict(color='#e74c3c', dash='dot', width=1.5),
+                                    showlegend=False,
+                                    hovertemplate=f'<b>{show_threshold}</b><br>Low mean: {means[0]:.4f}<extra></extra>',
+                                    name='Low mean'
+                                )
                             )
-                        )
+                            
+                            fig.add_trace(
+                                go.Scatter(
+                                    x=[means[1], means[1]],
+                                    y=[0, ymax],
+                                    mode='lines',
+                                    line=dict(color='#2ca02c', dash='dot', width=1.5),
+                                    showlegend=False,
+                                    hovertemplate=f'<b>{show_threshold}</b><br>High mean: {means[1]:.4f}<extra></extra>',
+                                    name='High mean'
+                                )
+                            )
     
     fig.update_layout(
         title=f"Confidence Distribution: {confidence_col}",
@@ -499,7 +497,6 @@ def plot_confidence_distribution(adata: ad.AnnData,
     )
     
     return fig
-
 
 
 def plot_hamming_graph(adata: ad.AnnData,
