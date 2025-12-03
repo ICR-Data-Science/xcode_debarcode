@@ -406,6 +406,7 @@ def debarcode(adata: ad.AnnData,
         print(f"Debarcoding complete using {method} (saved as '{final_method_name}')")
         print(f"  Confidence: adata.obs['{final_method_name}_confidence']")
         print(f"  Assignment: adata.obs['{final_method_name}_assignment']")
+        print(f"  [+] Metadata saved: adata.uns['debarcoding']['{final_method_name}']")
     
     return adata
 
@@ -419,72 +420,111 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         prob_thresh: float = 0.5,
                         mean_conf_switch: float = 0.5,
                         thresholds: Optional[List[float]] = None,
+                        # Intensity filtering
+                        apply_intensity_filter: bool = True,
+                        intensity_method: str = 'rectangular',
+                        intensity_percentile: float = 99.0,
+                        intensity_sum_low: Optional[float] = 1.0,
+                        intensity_sum_high: Optional[float] = 99.0,
+                        intensity_var_low: Optional[float] = 1.0,
+                        intensity_var_high: Optional[float] = 99.0,
+                        intensity_filter_or_flag: str = 'filter',
+                        # Hamming clustering
                         apply_hamming: bool = True,
+                        hamming_method: str = 'msg',
                         hamming_radius: int = 2,
-                        hamming_min_count: int = 0,
-                        hamming_low_confidence_percentile: float = 100.0,
-                        hamming_min_mean_conf: float = 0.0,
-                        hamming_score_metric: str = 'count',
-                        apply_confidence_filter: bool = True,
-                        confidence_filter_method: Optional[str] = 'percentile',
-                        confidence_value: Optional[float] = 90,
-                        confidence_filter_or_flag: str = 'flag',
+                        hamming_ratio: float = 15.0,
+                        hamming_ratio_metric: str = 'count',
+                        hamming_tie_break: str = 'lda',
+                        hamming_test_conf: bool = True,
+                        hamming_low_conf_perc: Optional[float] = None,
+                        # Pattern filtering
+                        apply_pattern_filter: bool = True,
+                        pattern_filter_metric: str = 'median_conf',
+                        pattern_filter_method: str = 'percentile',
+                        pattern_filter_value: float = 90,
+                        pattern_filter_exclude_remapped: bool = True,
+                        pattern_filter_or_flag: str = 'flag',
                         inplace: bool = True,
                         verbose: bool = True) -> ad.AnnData:
     """Complete debarcoding pipeline with transformation and postprocessing.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object with mapped barcode channels
+        Annotated data object with mapped barcode channels.
     method : str
-        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'scoring', 'auto' (default: 'auto')
+        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'scoring', 'auto', 'manual'. Default: 'auto'.
     transform_method : str
-        Transformation: 'log' or 'arcsinh' (default: 'log')
+        Transformation: 'log' or 'arcsinh'. Default: 'log'.
     cofactor : float
-        Cofactor for arcsinh transformation (default: 5.0)
+        Cofactor for arcsinh transformation. Default: 5.0.
     n_init : int
-        GMM initializations for gmm/pc_gmm/auto (default: 5)
+        GMM initializations for gmm/pc_gmm/auto. Default: 5.
     min_int : float
-        Minimum intensity for GMM fitting (default: 0.1)
+        Minimum intensity for GMM fitting. Default: 0.1.
     prob_thresh : float
-        GMM probability threshold for 'gmm' method (default: 0.5)
+        GMM probability threshold for 'gmm' method. Default: 0.5.
     mean_conf_switch : float
-        Auto method switch threshold (default: 0.5)
+        Auto method switch threshold. Default: 0.5.
     thresholds : list of float, optional
-        Manual thresholds for 'manual' method (one per channel)
+        Manual thresholds for 'manual' method (one per channel).
+    
+    apply_intensity_filter : bool
+        Apply intensity filtering before debarcoding. Default: False.
+    intensity_method : str
+        Intensity filter method: 'rectangular' or 'ellipsoidal'. Default: 'rectangular'.
+    intensity_percentile : float
+        For 'ellipsoidal': percentile threshold. Default: 99.0.
+    intensity_sum_low : float, optional
+        For 'rectangular': lower percentile for channel sum. Default: 1.0.
+    intensity_sum_high : float, optional
+        For 'rectangular': upper percentile for channel sum. Default: 99.0.
+    intensity_var_low : float, optional
+        For 'rectangular': lower percentile for channel variance. Default: 1.0.
+    intensity_var_high : float, optional
+        For 'rectangular': upper percentile for channel variance. Default: 99.0.
+    intensity_filter_or_flag : str
+        'filter' to remove cells or 'flag' to mark. Default: 'filter'.
     
     apply_hamming : bool
-        Apply Hamming clustering (default: True)
+        Apply Hamming clustering. Default: True.
+    hamming_method : str
+        Hamming method: 'msg' or 'sphere'. Default: 'msg'.
     hamming_radius : int
-        Hamming distance radius for clustering (default: 2)
-    hamming_min_count : int
-        Minimum pattern count for Hamming clustering (default: 0)
-    hamming_low_confidence_percentile : float
-        Percentile for low-confidence filtering in Hamming (default: 100.0)
-    hamming_min_mean_conf : float
-        Minimum mean confidence for cluster centers (default: 0.0)
-    hamming_score_metric : str
-        Scoring metric for Hamming: 'count', 'mean_conf' (default: 'count')
+        Max Hamming distance for neighbor search. Default: 2.
+    hamming_ratio : float
+        Minimum ratio for remapping valid patterns. Default: 15.0.
+    hamming_ratio_metric : str
+        Ratio metric: 'count' or 'score'. Default: 'count'.
+    hamming_tie_break : str
+        Tie-break method: 'no_remap', 'count', or 'lda'. Default: 'lda'.
+    hamming_test_conf : bool
+        Only remap to higher confidence neighbors. Default: True.
+    hamming_low_conf_perc : float, optional
+        Only remap bottom N% confidence cells. Default: None (all).
     
-    apply_confidence_filter : bool
-        Apply confidence filtering (default: True)
-    confidence_filter_method : str, optional
-        Filter method: 'threshold', 'percentile', 'adaptive'
-    confidence_value : float, optional
-        Value for filtering (interpretation depends on method)
-    confidence_filter_or_flag : str
-        Action: 'filter' (remove) or 'flag' (mark) (default: 'filter')
+    apply_pattern_filter : bool
+        Apply pattern-based filtering after hamming. Default: True.
+    pattern_filter_metric : str
+        Pattern metric: 'count', 'median_conf', or 'score'. Default: 'median_conf'.
+    pattern_filter_method : str
+        Filter method: 'threshold' or 'percentile'. Default: 'percentile'.
+    pattern_filter_value : float
+        Threshold or percentile value. Default: 90.
+    pattern_filter_exclude_remapped : bool
+        Exclude remapped cells from metric calculation. Default: True.
+    pattern_filter_or_flag : str
+        'flag' to mark or 'filter' to remove cells. Default: 'flag'.
     
     inplace : bool
-        Modify adata in place (default: True)
+        Modify adata in place. Default: True.
     verbose : bool
-        Print progress messages (default: True)
+        Print progress messages. Default: True.
     
-    Returns:
-    --------
-    adata : AnnData
-        Processed AnnData with debarcoding results
+    Returns
+    -------
+    AnnData with debarcoding results.
     """
     from .io import get_barcode_channels
     barcode_channels = get_barcode_channels(adata)
@@ -502,47 +542,82 @@ def debarcoding_pipeline(adata: ad.AnnData,
         print("DEBARCODING PIPELINE")
         print("="*80)
     
+    # Step 1: Transformation
     if verbose:
         print("\nStep 1: Transformation")
     adata = preprocessing.transform(adata, method=transform_method, cofactor=cofactor, verbose=verbose)
     layer_name = f'arcsinh_cf{cofactor}' if transform_method == 'arcsinh' else 'log'
     
+    # Step 2: Intensity filtering (optional)
+    step = 2
+    if apply_intensity_filter:
+        if verbose:
+            print(f"\nStep {step}: Intensity filtering")
+        adata = preprocessing.filter_cells_intensity(
+            adata,
+            layer=layer_name,
+            method=intensity_method,
+            percentile=intensity_percentile,
+            sum_low=intensity_sum_low,
+            sum_high=intensity_sum_high,
+            var_low=intensity_var_low,
+            var_high=intensity_var_high,
+            filter_or_flag=intensity_filter_or_flag,
+            verbose=verbose
+        )
+        step += 1
+    
+    # Step 3: Debarcoding
     if verbose:
-        print("\nStep 2: Debarcoding")
-    adata = debarcode(adata, method=method,layer=layer_name, n_init=n_init,
+        print(f"\nStep {step}: Debarcoding")
+    adata = debarcode(adata, method=method, layer=layer_name, n_init=n_init,
                       min_int=min_int, prob_thresh=prob_thresh, mean_conf_switch=mean_conf_switch,
-                     thresholds=thresholds, verbose=verbose)
-
+                      thresholds=thresholds, verbose=verbose)
+    step += 1
+    
     method_name = list(adata.uns['debarcoding'].keys())[-1]
     assignment_col = f'{method_name}_assignment'
     confidence_col = f'{method_name}_confidence'
     
+    # Step 4: Hamming clustering
     if apply_hamming:
         if verbose:
-            print("\nStep 3: Hamming clustering")
+            print(f"\nStep {step}: Hamming clustering")
         adata = postprocessing.hamming_cluster(
-            adata, assignment_col=assignment_col, confidence_col=confidence_col,
-            radius=hamming_radius, min_valid_count=hamming_min_count,
-            low_confidence_percentile=hamming_low_confidence_percentile,
-            min_mean_conf=hamming_min_mean_conf, score_metric=hamming_score_metric,
+            adata,
+            assignment_col=assignment_col,
+            confidence_col=confidence_col,
+            method=hamming_method,
+            radius=hamming_radius,
+            ratio=hamming_ratio,
+            ratio_metric=hamming_ratio_metric,
+            tie_break=hamming_tie_break,
+            test_conf=hamming_test_conf,
+            low_conf_perc=hamming_low_conf_perc,
+            layer=layer_name,
             verbose=verbose
         )
         assignment_col = f'{method_name}_hamming_assignment'
-        confidence_col = f'{method_name}_hamming_confidence'
+        remapped_col = f'{method_name}_hamming_remapped'
+        step += 1
     
-    if apply_confidence_filter:
+    # Step 5: Pattern filtering
+    if apply_pattern_filter:
         if verbose:
-            print(f"\nStep 4: Confidence filtering ({confidence_filter_or_flag})")
+            print(f"\nStep {step}: Pattern filtering")
         
-        if not confidence_filter_method:
-            raise ValueError("apply_confidence_filter=True requires confidence_filter_method")
+        exclude_col = remapped_col if (apply_hamming and pattern_filter_exclude_remapped) else None
         
-        if confidence_filter_method in ['threshold', 'percentile'] and confidence_value is None:
-            raise ValueError(f"confidence_filter_method='{confidence_filter_method}' requires confidence_value")
-        
-        adata = postprocessing.filter_by_confidence(
-            adata, confidence_col=confidence_col, method=confidence_filter_method,
-            value=confidence_value, filter_or_flag=confidence_filter_or_flag, verbose=verbose
+        adata = postprocessing.filter_pattern(
+            adata,
+            assignment_col=assignment_col,
+            confidence_col=confidence_col,
+            metric=pattern_filter_metric,
+            method=pattern_filter_method,
+            value=pattern_filter_value,
+            exclude=exclude_col,
+            filter_or_flag=pattern_filter_or_flag,
+            verbose=verbose
         )
     
     if verbose:
@@ -551,8 +626,10 @@ def debarcoding_pipeline(adata: ad.AnnData,
         print("="*80)
         print(f"\nFinal assignment: {assignment_col}")
         print(f"Final confidence: {confidence_col}")
-        if apply_confidence_filter and confidence_filter_or_flag == 'flag':
-            flag_method = confidence_col[:confidence_col.rfind('_')]
-            print(f"Low confidence flag: adata.obs['{flag_method}_pass']")
+        if apply_intensity_filter and intensity_filter_or_flag == 'flag':
+            print(f"Intensity filter flag: adata.obs['intensity_pass']")
+        if apply_pattern_filter and pattern_filter_or_flag == 'flag':
+            base_name = assignment_col.rsplit('_', 1)[0] if '_' in assignment_col else assignment_col
+            print(f"Pattern filter flag: adata.obs['{base_name}_pattern_pass']")
     
     return adata

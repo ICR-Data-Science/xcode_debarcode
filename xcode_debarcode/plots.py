@@ -10,69 +10,291 @@ import warnings
 
 __all__ = [
     "plot_channel_intensities", 
+    "plot_intensity_scatter",
+    "plot_cumul_barcode_rank"
     "plot_confidence_distribution", 
     "plot_hamming_graph",
     "plot_barcode_rank_histogram",
     "plot_hamming_heatmap"
 ]
 
+def plot_intensity_scatter(adata: ad.AnnData,
+                           layer: Optional[str] = 'log',
+                           method: Optional[str] = None,
+                           percentile: float = 99.0,
+                           sum_low: Optional[float] = 1.0,
+                           sum_high: Optional[float] = 99.0,
+                           var_low: Optional[float] = 1.0,
+                           var_high: Optional[float] = 99.0,
+                           subsample: Optional[int] = 50000) -> go.Figure:
+    """Plot channel sum vs variance scatter with optional filter preview.
+    
+    Helps visualize cell distribution and preview intensity filtering
+    before applying it.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data object with mapped barcode channels.
+    layer : str, optional
+        Data layer to use. None for adata.X. Default: 'log'.
+    method : str, optional
+        Filter method to preview: 'rectangular', 'ellipsoidal', or None.
+        If None, shows raw scatter without filtering. Default: None.
+    percentile : float
+        For 'ellipsoidal' method, percentile threshold. Default: 95.0.
+    sum_low : float, optional
+        For 'rectangular': lower percentile bound for channel sum. Default: 1.0.
+    sum_high : float, optional
+        For 'rectangular': upper percentile bound for channel sum. Default: 99.0.
+    var_low : float, optional
+        For 'rectangular': lower percentile bound for channel variance. Default: 1.0.
+    var_high : float, optional
+        For 'rectangular': upper percentile bound for channel variance. Default: 99.0.
+    subsample : int, optional
+        Max cells to plot (for performance). None for all. Default: 50000.
+    
+    Returns
+    -------
+    fig : plotly Figure
+        Interactive scatter plot.
+    """
+    if method is not None and method not in {'rectangular', 'ellipsoidal'}:
+        raise ValueError(f"method must be 'rectangular', 'ellipsoidal', or None, got {method!r}")
+    if 'barcode_channels' not in adata.uns:
+        raise ValueError("Barcode channels not mapped. Run map_channels first.")
+    
+    bc_channels = adata.uns['barcode_channels']
+    bc_idx = [list(adata.var_names).index(ch) for ch in bc_channels]
+    X = adata.layers[layer][:, bc_idx] if layer else adata.X[:, bc_idx]
+    
+    channel_sum = np.abs(X).sum(axis=1)
+    channel_var = np.var(X, axis=1)
+    n_total = len(adata)
+    
+    # Subsample for plotting
+    if subsample is not None and n_total > subsample:
+        np.random.seed(42)
+        idx = np.random.choice(n_total, subsample, replace=False)
+        channel_sum_plot = channel_sum[idx]
+        channel_var_plot = channel_var[idx]
+        subsampled = True
+    else:
+        channel_sum_plot = channel_sum
+        channel_var_plot = channel_var
+        idx = np.arange(n_total)
+        subsampled = False
+    
+    fig = go.Figure()
+    
+    if method is None:
+        # Raw scatter
+        fig.add_trace(
+            go.Scattergl(
+                x=channel_sum_plot,
+                y=channel_var_plot,
+                mode='markers',
+                marker=dict(size=3, color='#3498db', opacity=0.3),
+                hovertemplate='Sum: %{x:.2f}<br>Var: %{y:.4f}<extra></extra>',
+                showlegend=False
+            )
+        )
+        
+        subtitle = f"{len(channel_sum_plot):,} cells"
+        if subsampled:
+            subtitle += f" (subsampled from {n_total:,})"
+        
+        fig.update_layout(
+            title=f"Channel Sum vs Variance<br><sub>{subtitle}</sub>",
+        )
+    
+    else:
+        if method == 'rectangular':
+            thresholds = {
+                'sum_low': np.percentile(channel_sum, sum_low) if sum_low is not None else None,
+                'sum_high': np.percentile(channel_sum, sum_high) if sum_high is not None else None,
+                'var_low': np.percentile(channel_var, var_low) if var_low is not None else None,
+                'var_high': np.percentile(channel_var, var_high) if var_high is not None else None,
+            }
+            
+            pass_mask = np.ones(n_total, dtype=bool)
+            if thresholds['sum_low'] is not None:
+                pass_mask &= channel_sum >= thresholds['sum_low']
+            if thresholds['sum_high'] is not None:
+                pass_mask &= channel_sum <= thresholds['sum_high']
+            if thresholds['var_low'] is not None:
+                pass_mask &= channel_var >= thresholds['var_low']
+            if thresholds['var_high'] is not None:
+                pass_mask &= channel_var <= thresholds['var_high']
+            
+            param_str = f"sum=[{sum_low}, {sum_high}], var=[{var_low}, {var_high}]"
+        
+        else:  # ellipsoidal
+            from sklearn.covariance import MinCovDet
+            
+            data = np.column_stack([channel_sum, channel_var])
+            mcd = MinCovDet(random_state=42, support_fraction=0.75)
+            mcd.fit(data)
+            mahal_dist = np.sqrt(mcd.mahalanobis(data))
+            threshold = np.percentile(mahal_dist, percentile)
+            pass_mask = mahal_dist <= threshold
+            
+            param_str = f"percentile={percentile}"
+        
+        pass_mask_plot = pass_mask[idx]
+        fail_mask_plot = ~pass_mask_plot
+        
+        n_pass = pass_mask.sum()
+        n_fail = n_total - n_pass
+        pct_pass = 100 * n_pass / n_total
+        
+        fig.add_trace(
+            go.Scatter(
+                x=channel_sum_plot[fail_mask_plot],
+                y=channel_var_plot[fail_mask_plot],
+                mode='markers',
+                marker=dict(size=3, color='#e74c3c', opacity=0.5),
+                name=f'Removed ({n_fail:,})',
+                hovertemplate='Sum: %{x:.2f}<br>Var: %{y:.4f}<extra>Removed</extra>',
+            )
+        )
+        
+        fig.add_trace(
+            go.Scatter(
+                x=channel_sum_plot[pass_mask_plot],
+                y=channel_var_plot[pass_mask_plot],
+                mode='markers',
+                marker=dict(size=3, color='#3498db', opacity=0.3),
+                name=f'Kept ({n_pass:,})',
+                hovertemplate='Sum: %{x:.2f}<br>Var: %{y:.4f}<extra>Kept</extra>',
+            )
+        )
+        
+        subtitle_parts = [f"{method}", param_str, f"{n_pass:,}/{n_total:,} kept ({pct_pass:.1f}%)"]
+        if subsampled:
+            subtitle_parts.append(f"showing {len(channel_sum_plot):,}")
+        
+        fig.update_layout(
+            title=f"Intensity Filter Preview<br><sub>{' | '.join(subtitle_parts)}</sub>",
+            legend=dict(yanchor="top", y=0.99, xanchor="right", x=0.99)
+        )
+    
+    fig.update_xaxes(title_text="Channel Sum")
+    fig.update_yaxes(title_text="Channel Variance")
+    fig.update_layout(
+        height=500,
+        hovermode='closest'
+    )
+    
+    return fig
+
 
 def plot_barcode_rank_histogram(adata: ad.AnnData,
                                 assignment_col: str,
+                                confidence_col: Optional[str] = None,
+                                metric: str = 'count',
                                 top_n: int = 20,
-                                min_count: int = 1) -> go.Figure:
+                                min_metric: float = 0,
+                                valid_only: bool = False) -> go.Figure:
     """Plot rank histogram of top barcode patterns.
     
     Shows the most frequent barcode patterns as a ranked bar chart.
     Valid patterns shown in blue, invalid patterns in grey.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     assignment_col : str
-        Column name with barcode assignments (string patterns)
+        Column name with barcode assignments (string patterns).
+    confidence_col : str, optional
+        Column name with confidence scores. Required for metric='median_conf' or 'score'.
+    metric : str
+        Metric to rank and display: 'count', 'median_conf', or 'score' (count * median_conf).
+        Default: 'count'.
     top_n : int
-        Number of top patterns to show (default: 20)
-    min_count : int
-        Minimum count to include (default: 1)
+        Number of top patterns to show. Default: 20.
+    min_metric : float
+        Minimum metric value to include pattern. Default: 1.
+    valid_only : bool
+        Only show valid patterns. Default: False.
     
-    Returns:
-    --------
+    Returns
+    -------
     fig : plotly Figure
-        Interactive bar chart
+        Interactive bar chart.
     """
-    from collections import Counter
     from .barcode import is_valid_pattern
     
     if assignment_col not in adata.obs.columns:
         raise ValueError(f"Assignment column '{assignment_col}' not found in adata.obs")
+    if metric not in {'count', 'median_conf', 'score'}:
+        raise ValueError(f"metric must be 'count', 'median_conf', or 'score', got {metric!r}")
+    if metric in {'median_conf', 'score'} and confidence_col is None:
+        raise ValueError(f"confidence_col required for metric='{metric}'")
+    if confidence_col is not None and confidence_col not in adata.obs.columns:
+        raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
     
-    patterns_str = adata.obs[assignment_col].values
-    patterns = [tuple(int(c) for c in p) for p in patterns_str]
-    pattern_counts = Counter(patterns)
+    patterns_str = adata.obs[assignment_col].values.astype(str)
+    confidences = adata.obs[confidence_col].values.astype(np.float64) if confidence_col else None
     
-    filtered = {p: c for p, c in pattern_counts.items() if c >= min_count}
-    top_patterns = sorted(filtered.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    pattern_to_cells = {}
+    for i, p in enumerate(patterns_str):
+        if p not in pattern_to_cells:
+            pattern_to_cells[p] = []
+        pattern_to_cells[p].append(i)
     
-    if not top_patterns:
-        raise ValueError(f"No patterns with count >= {min_count}")
+    pattern_stats = {}
+    for p, indices in pattern_to_cells.items():
+        pattern_tuple = tuple(int(c) for c in p)
+        if valid_only and not is_valid_pattern(pattern_tuple):
+            continue
+        count = len(indices)
+        median_conf = float(np.median(confidences[indices])) if confidences is not None else None
+        score = count * median_conf if median_conf is not None else None
+        
+        metric_value = {'count': count, 'median_conf': median_conf, 'score': score}[metric]
+        if metric_value is None or metric_value < min_metric:
+            continue
+        
+        pattern_stats[p] = {
+            'count': count,
+            'median_conf': median_conf,
+            'score': score,
+            'pattern_tuple': pattern_tuple
+        }
+    
+    if not pattern_stats:
+        raise ValueError(f"No patterns with {metric} >= {min_metric}" +
+                        (" and valid_only=True" if valid_only else ""))
+    
+    # Sort by metric
+    top_patterns = sorted(pattern_stats.items(), key=lambda x: x[1][metric], reverse=True)[:top_n]
     
     ranks = list(range(1, len(top_patterns) + 1))
-    counts = [c for _, c in top_patterns]
-    colors = ['#3498db' if is_valid_pattern(p) else '#95a5a6' for p, _ in top_patterns]
-    hover_texts = [
-        f"Rank: {r}<br>Pattern: {{{', '.join(str(i+1) for i, b in enumerate(p) if b)}}}<br>"
-        f"Count: {c}<br>Valid: {is_valid_pattern(p)}"
-        for r, (p, c) in enumerate(top_patterns, 1)
-    ]
+    values = [stats[metric] for _, stats in top_patterns]
+    counts = [stats['count'] for _, stats in top_patterns]
+    colors = ['#3498db' if is_valid_pattern(stats['pattern_tuple']) else '#95a5a6' 
+              for _, stats in top_patterns]
+    
+    hover_texts = []
+    for r, (p, stats) in enumerate(top_patterns, 1):
+        pt = stats['pattern_tuple']
+        text = (f"Rank: {r}<br>"
+                f"Pattern: {{{', '.join(str(i+1) for i, b in enumerate(pt) if b)}}}<br>"
+                f"Count: {stats['count']}<br>"
+                f"Valid: {is_valid_pattern(pt)}")
+        if stats['median_conf'] is not None:
+            text += f"<br>Median conf: {stats['median_conf']:.3f}"
+            text += f"<br>Score: {stats['score']:.1f}"
+        hover_texts.append(text)
     
     fig = go.Figure()
     
     fig.add_trace(
         go.Bar(
             x=ranks,
-            y=counts,
+            y=values,
             marker=dict(color=colors, line=dict(color='#2c3e50', width=1)),
             customdata=hover_texts,
             hovertemplate='%{customdata}<extra></extra>',
@@ -80,19 +302,144 @@ def plot_barcode_rank_histogram(adata: ad.AnnData,
         )
     )
     
+    metric_labels = {
+        'count': 'Count',
+        'median_conf': 'Median Confidence',
+        'score': 'Score (count × median_conf)'
+    }
+    
+    subtitle_parts = [f"Top {len(top_patterns)} patterns by {metric}",
+                      f"{sum(counts):,} cells",
+                      f"min_{metric}={min_metric}"]
+    if valid_only:
+        subtitle_parts.append("valid only")
+    
     fig.update_layout(
         title=f"Barcode Pattern Rank Histogram<br>"
-              f"<sub>Top {len(top_patterns)} patterns | {sum(counts):,} cells | min_count={min_count}</sub>",
+              f"<sub>{' | '.join(subtitle_parts)}</sub>",
         xaxis=dict(
-            title="Rank (by frequency)",
+            title=f"Rank (by {metric})",
             tickmode='linear',
             tick0=1,
             dtick=1 if len(top_patterns) <= 20 else 5
         ),
-        yaxis_title="Count",
+        yaxis_title=metric_labels[metric],
         hovermode='closest',
         height=500
     )
+    
+    return fig
+
+
+def plot_cumul_barcode_rank(adata: ad.AnnData,
+                            assignment_col: str,
+                            confidence_col: Optional[str] = None,
+                            metric: str = 'count',
+                            valid_only: bool = False,
+                            normalize: bool = True,
+                            log_x: bool = True) -> go.Figure:
+    """Plot cumulative barcode rank curve.
+    
+    Shows cumulative sum of metric values across patterns ranked by that metric.
+    Useful for visualizing how many top patterns capture most of the data.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data object.
+    assignment_col : str
+        Column name with barcode assignments (string patterns).
+    confidence_col : str, optional
+        Column name with confidence scores. Required for metric='score'.
+    metric : str
+        Metric to rank by: 'count' or 'score' (count * median_conf). Default: 'count'.
+    valid_only : bool
+        Only include valid patterns. Default: False.
+    normalize : bool
+        Normalize cumulative sum to [0, 1]. Default: True.
+    log_x : bool
+        Use log scale for x-axis. Default: True.
+    
+    Returns
+    -------
+    fig : plotly Figure
+        Interactive cumulative rank curve.
+    """
+    from .barcode import is_valid_pattern
+    
+    if assignment_col not in adata.obs.columns:
+        raise ValueError(f"Assignment column '{assignment_col}' not found in adata.obs")
+    if metric not in {'count', 'score'}:
+        raise ValueError(f"metric must be 'count' or 'score', got {metric!r}")
+    if metric == 'score' and confidence_col is None:
+        raise ValueError("confidence_col required for metric='score'")
+    if confidence_col is not None and confidence_col not in adata.obs.columns:
+        raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
+    
+    patterns_str = adata.obs[assignment_col].values.astype(str)
+    confidences = adata.obs[confidence_col].values.astype(np.float64) if confidence_col else None
+    
+    pattern_to_cells = {}
+    for i, p in enumerate(patterns_str):
+        if p not in pattern_to_cells:
+            pattern_to_cells[p] = []
+        pattern_to_cells[p].append(i)
+    
+    metric_values = []
+    for p, indices in pattern_to_cells.items():
+        pattern_tuple = tuple(int(c) for c in p)
+        if valid_only and not is_valid_pattern(pattern_tuple):
+            continue
+        count = len(indices)
+        if metric == 'score':
+            median_conf = float(np.median(confidences[indices]))
+            metric_values.append(count * median_conf)
+        else:
+            metric_values.append(count)
+    
+    if not metric_values:
+        raise ValueError(f"No patterns found" + (" with valid_only=True" if valid_only else ""))
+    
+    metric_values = np.array(sorted(metric_values, reverse=True))
+    cumsum = np.cumsum(metric_values)
+    if normalize:
+        cumsum = cumsum / cumsum[-1]
+    
+    ranks = np.arange(1, len(metric_values) + 1)
+    
+    hover_texts = [f"Rank: {r}<br>{metric}: {v:.1f}<br>Cumulative: {c:.4f}" 
+                   for r, v, c in zip(ranks, metric_values, cumsum)]
+    
+    fig = go.Figure()
+    
+    fig.add_trace(
+        go.Scatter(
+            x=ranks,
+            y=cumsum,
+            mode='lines',
+            line=dict(color='#3498db', width=2),
+            customdata=hover_texts,
+            hovertemplate='%{customdata}<extra></extra>',
+            showlegend=False
+        )
+    )
+    
+    y_label = f"Cumulative {metric}" + (" (normalized)" if normalize else "")
+    
+    subtitle_parts = [f"{len(metric_values)} patterns"]
+    if valid_only:
+        subtitle_parts.append("valid only")
+    
+    fig.update_layout(
+        title=f"Cumulative Barcode Rank Curve<br><sub>{' | '.join(subtitle_parts)}</sub>",
+        xaxis_title="Rank (by " + metric + ")",
+        yaxis_title=y_label,
+        hovermode='closest',
+        height=500
+    )
+    
+    if log_x:
+        fig.update_xaxes(type="log")
     
     return fig
 
@@ -101,7 +448,7 @@ def plot_channel_intensities(adata: ad.AnnData,
                          channels: Optional[List[str]] = None,
                          layer: Optional[str] = None,
                          show_method_data: Optional[str] = None,
-                         log_scale_x: bool = False,
+                         log_scale_x: bool = True,
                          log_scale_y: bool = False,
                          bins: int = 250,
                          xlim: Optional[tuple] = None,
@@ -497,6 +844,7 @@ def plot_confidence_distribution(adata: ad.AnnData,
     )
     
     return fig
+
 
 
 def plot_hamming_graph(adata: ad.AnnData,

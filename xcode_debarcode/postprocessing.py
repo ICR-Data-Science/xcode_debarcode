@@ -1,13 +1,17 @@
 """Postprocessing methods for confidence filtering and Hamming clustering."""
+import os
+os.environ.setdefault('OPENBLAS_NUM_THREADS', '1')
+os.environ.setdefault('MKL_NUM_THREADS', '1')
+os.environ.setdefault('OMP_NUM_THREADS', '1')
 import numpy as np
 import anndata as ad
 from sklearn.mixture import GaussianMixture
-from collections import Counter
-from typing import Optional
-
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from collections import Counter, defaultdict
+from typing import Optional, Dict, Tuple, List
 from .barcode import is_valid_pattern
 
-__all__ = ["filter_by_confidence", "hamming_cluster", "mahalanobis_filter"]
+__all__ = ["filter_cells_conf", "filter_pattern", "hamming_cluster", "mahalanobis_filter"]
 
 
 def _adaptive_threshold_gmm(values, n_init=5):
@@ -41,7 +45,299 @@ def _adaptive_threshold_gmm(values, n_init=5):
     }
 
 
-def filter_by_confidence(adata: ad.AnnData,
+def _build_hamming_neighbors(unique_patterns, max_radius=2):
+    """Build Hamming neighbor graph up to max_radius."""
+    if not unique_patterns:
+        return {}
+    
+    arr = np.array([[int(c) for c in p] for p in unique_patterns], dtype=np.int8)
+    dists = (arr[:, None] != arr).sum(2)
+    
+    neighbors = {p: {} for p in unique_patterns}
+    for i, j in zip(*np.where(np.triu((dists >= 1) & (dists <= max_radius), k=1))):
+        d = int(dists[i, j])
+        neighbors[unique_patterns[i]][unique_patterns[j]] = d
+        neighbors[unique_patterns[j]][unique_patterns[i]] = d
+    
+    return neighbors
+
+
+def _lda_classify(p: str, candidates: List[str], pattern_cells: Dict[str, set],
+                  X: np.ndarray, min_n: int = 5) -> Optional[Dict[str, List[int]]]:
+    """LDA tie-breaking using sklearn. Returns cell assignments or None if insufficient data."""
+    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+    
+    cells_p = pattern_cells.get(p, set())
+    if not cells_p:
+        return None
+    
+    cells_p_arr = np.array(list(cells_p))
+    
+    # Include source only if valid
+    p_valid = is_valid_pattern(p)
+    class_list = [p] + list(candidates) if p_valid else list(candidates)
+    
+    X_train_idx, y_train = [], []
+    label_map = {}
+    for c in class_list:
+        cells_c = pattern_cells.get(c, set())
+        if len(cells_c) >= min_n:
+            label = len(label_map)
+            label_map[label] = c
+            for idx in cells_c:
+                X_train_idx.append(idx)
+                y_train.append(label)
+    
+    if len(label_map) < 2:
+        return None
+    
+    # Get informative features
+    p_bits = np.array([int(c) for c in p], dtype=np.int8)
+    info_mask = np.zeros(X.shape[1], dtype=bool)
+    for c in candidates:
+        info_mask |= (p_bits != np.array([int(ch) for ch in c], dtype=np.int8))
+    info_idx = np.where(info_mask)[0]
+    if len(info_idx) == 0:
+        return None
+    
+    X_train = X[X_train_idx][:, info_idx]
+    y_train = np.array(y_train)
+    
+    lda = LinearDiscriminantAnalysis(solver='svd')
+    lda.fit(X_train, y_train)
+    best_labels = lda.predict(X[cells_p_arr][:, info_idx])
+    
+    result = defaultdict(list)
+    for idx, label in enumerate(best_labels):
+        result[label_map[label]].append(cells_p_arr[idx])
+    return dict(result)
+
+
+def _msg_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
+                 X: Optional[np.ndarray], radius: int, ratio: float, test_conf: bool,
+                 tie_break: str, ratio_metric: str) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """Message passing clustering."""
+    n_cells = len(patterns_str)
+    
+    pattern_to_cells = defaultdict(list)
+    for i, p in enumerate(patterns_str):
+        pattern_to_cells[p].append(i)
+    
+    pattern_stats, pattern_cells = {}, {}
+    for p, indices in pattern_to_cells.items():
+        arr = np.array(indices)
+        count = len(arr)
+        median = float(np.median(confidences[arr]))
+        pattern_stats[p] = {'count': count, 'median': median, 'is_valid': is_valid_pattern(p)}
+        pattern_cells[p] = set(indices)
+    
+    neighbors = _build_hamming_neighbors(list(pattern_stats.keys()), max_radius=radius)
+    all_patterns = list(pattern_stats.keys())
+    if not all_patterns:
+        return patterns_str.copy(), confidences.copy(), {'n_remapped': 0}
+    
+    sorted_patterns = sorted(all_patterns, key=lambda p: (pattern_stats[p]['count'], pattern_stats[p]['median']))
+    mass = {p: pattern_stats[p]['count'] for p in pattern_stats}
+    center_of = {p: p for p in all_patterns}
+    stats = {'n_ties': 0, 'n_lda': 0, 'n_stayed': 0, 'n_moved': 0}
+    
+    for p in sorted_patterns:
+        cells_p = pattern_cells.get(p, set())
+        if not cells_p:
+            continue
+        
+        N_p, conf_p = len(cells_p), pattern_stats[p]['median']
+        score_p = N_p * conf_p
+        p_valid = pattern_stats[p]['is_valid']
+        
+        candidates_with_dist = []
+        for q, dist in neighbors.get(p, {}).items():
+            if not pattern_stats.get(q, {}).get('is_valid'):
+                continue
+            if p_valid and dist % 2 != 0:
+                continue
+            if p_valid:
+                if ratio_metric == 'score':
+                    if mass.get(q, 0) * pattern_stats[q]['median'] < ratio * score_p:
+                        continue
+                else:
+                    if mass.get(q, 0) < ratio * N_p:
+                        continue
+                if test_conf and pattern_stats[q]['median'] <= conf_p:
+                    continue
+            candidates_with_dist.append((q, dist))
+        
+        if not candidates_with_dist:
+            continue
+        
+        # Pick candidates at minimum distance
+        min_dist = min(d for _, d in candidates_with_dist)
+        candidates = [q for q, d in candidates_with_dist if d == min_dist]
+        
+        if len(candidates) > 1:
+            stats['n_ties'] += 1
+            if tie_break == 'no_remap':
+                continue
+            if tie_break == 'lda' and X is not None:
+                result = _lda_classify(p, candidates, pattern_cells, X)
+                if result:
+                    stats['n_lda'] += 1
+                    for tgt, cells in result.items():
+                        if tgt == p:
+                            stats['n_stayed'] += len(cells)
+                        else:
+                            stats['n_moved'] += len(cells)
+                            for c in cells:
+                                pattern_cells[p].discard(c)
+                                pattern_cells.setdefault(tgt, set()).add(c)
+                            mass[p], mass[tgt] = len(pattern_cells[p]), len(pattern_cells[tgt])
+                    continue
+        
+        best_q = max(candidates, key=lambda q: mass.get(q, 0))
+        stats['n_moved'] += len(cells_p)
+        for c in list(cells_p):
+            pattern_cells[p].discard(c)
+            pattern_cells.setdefault(best_q, set()).add(c)
+        mass[p], mass[best_q] = 0, len(pattern_cells[best_q])
+        center_of[p] = best_q
+    
+    # Resolve chains
+    for p in all_patterns:
+        curr, visited = p, set()
+        while center_of.get(curr, curr) != curr and curr not in visited:
+            visited.add(curr)
+            curr = center_of[curr]
+        center_of[p] = curr
+    
+    cell_to_pat = {c: p for p, cells in pattern_cells.items() for c in cells}
+    new_patterns = np.array(patterns_str, dtype=object)
+    n_remapped = 0
+    for i in range(n_cells):
+        final = center_of.get(cell_to_pat.get(i, patterns_str[i]), patterns_str[i])
+        if final != patterns_str[i]:
+            n_remapped += 1
+            new_patterns[i] = final
+    
+    stats['n_remapped'] = n_remapped
+    return new_patterns, confidences, stats
+
+
+def _sphere_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
+                    X: Optional[np.ndarray], radius: int, ratio: float, test_conf: bool,
+                    tie_break: str, min_count_center: int, ratio_metric: str) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """Sphere clustering: local maxima centers, remap within radius."""
+    n_cells = len(patterns_str)
+    
+    pattern_to_cells = defaultdict(list)
+    for i, p in enumerate(patterns_str):
+        pattern_to_cells[p].append(i)
+    
+    pattern_stats, pattern_cells = {}, {}
+    for p, indices in pattern_to_cells.items():
+        arr = np.array(indices)
+        count = len(arr)
+        median = float(np.median(confidences[arr]))
+        pattern_stats[p] = {'count': count, 'median': median, 'is_valid': is_valid_pattern(p)}
+        pattern_cells[p] = set(indices)
+    
+    unique = list(pattern_stats.keys())
+    neighbors = _build_hamming_neighbors(unique, max_radius=radius)
+    
+    # Centers: valid local maxima
+    centers = [p for p, s in pattern_stats.items()
+               if s['is_valid'] and s['count'] >= min_count_center
+               and all(pattern_stats.get(q, {}).get('count', 0) <= s['count'] 
+                      for q, d in neighbors.get(p, {}).items() if d == 2)]
+    
+    if not centers:
+        return patterns_str.copy(), confidences.copy(), {'n_centers': 0, 'n_remapped': 0, 'centers': []}
+    
+    center_arr = np.array([[int(c) for c in p] for p in centers], dtype=np.int8)
+    center_set = set(centers)
+    
+    non_centers = sorted([p for p in unique if p not in center_set],
+                        key=lambda p: (pattern_stats[p]['count'], pattern_stats[p]['median']))
+    
+    mass = {p: pattern_stats[p]['count'] for p in pattern_stats}
+    parent = {}
+    stats = {'n_centers': len(centers), 'n_ties': 0, 'n_lda': 0, 'n_stayed': 0, 'n_moved': 0, 'centers': centers}
+    
+    for p in non_centers:
+        cells_p = pattern_cells.get(p, set())
+        if not cells_p:
+            continue
+        
+        N_p, conf_p = len(cells_p), pattern_stats[p]['median']
+        score_p = N_p * conf_p
+        p_valid = pattern_stats[p]['is_valid']
+        p_arr = np.array([[int(c) for c in p]], dtype=np.int8)
+        dists = (center_arr != p_arr).sum(1)
+        
+        valid_idx = []
+        for i in range(len(centers)):
+            d = dists[i]
+            if d == 0 or d > radius:
+                continue
+            if p_valid and d % 2 != 0:
+                continue
+            if p_valid:
+                if ratio_metric == 'score':
+                    if mass.get(centers[i], 0) * pattern_stats[centers[i]]['median'] < ratio * score_p:
+                        continue
+                else:
+                    if mass.get(centers[i], 0) < ratio * N_p:
+                        continue
+                if test_conf and pattern_stats[centers[i]]['median'] <= conf_p:
+                    continue
+            valid_idx.append((i, d))
+        
+        if not valid_idx:
+            continue
+        
+        min_dist = min(d for _, d in valid_idx)
+        closest = [centers[i] for i, d in valid_idx if d == min_dist]
+        
+        if len(closest) > 1:
+            stats['n_ties'] += 1
+            if tie_break == 'no_remap':
+                continue
+            if tie_break == 'lda' and X is not None:
+                result = _lda_classify(p, closest, pattern_cells, X)
+                if result:
+                    stats['n_lda'] += 1
+                    for tgt, cells in result.items():
+                        if tgt == p:
+                            stats['n_stayed'] += len(cells)
+                        else:
+                            stats['n_moved'] += len(cells)
+                            parent[p] = tgt
+                            for c in cells:
+                                pattern_cells[p].discard(c)
+                                pattern_cells.setdefault(tgt, set()).add(c)
+                            mass[p], mass[tgt] = len(pattern_cells[p]), len(pattern_cells[tgt])
+                    continue
+        
+        best = max(closest, key=lambda c: mass.get(c, 0))
+        parent[p] = best
+        stats['n_moved'] += len(cells_p)
+        for c in list(cells_p):
+            pattern_cells[p].discard(c)
+            pattern_cells.setdefault(best, set()).add(c)
+        mass[p], mass[best] = 0, len(pattern_cells[best])
+    
+    new_patterns = np.array(patterns_str, dtype=object)
+    n_remapped = 0
+    for i in range(n_cells):
+        final = parent.get(patterns_str[i], patterns_str[i])
+        if final != patterns_str[i]:
+            n_remapped += 1
+            new_patterns[i] = final
+    
+    stats['n_remapped'] = n_remapped
+    return new_patterns, confidences, stats
+
+
+def filter_cells_conf(adata: ad.AnnData,
                         confidence_col: str,
                         method: str = 'percentile',
                         value: Optional[float] = 90,
@@ -173,188 +469,360 @@ def filter_by_confidence(adata: ad.AnnData,
     
     return adata
 
-
-def hamming_cluster(adata: ad.AnnData,
+def filter_pattern(adata: ad.AnnData,
                    assignment_col: str,
                    confidence_col: str,
-                   radius: int = 2,
-                   min_valid_count: int = 20,
-                   low_confidence_percentile: Optional[float] = None,
-                   min_mean_conf: float = 0.0,
-                   score_metric: str = 'count',
-                   save_results: bool = True,
-                   clustering_name: Optional[str] = None,
+                   metric: str = 'count',
+                   method: str = 'threshold',
+                   value: float = 10,
+                   filter_or_flag: str = 'flag',
+                   exclude: Optional[str] = None,
+                   filter_name: Optional[str] = None,
                    inplace: bool = True,
                    verbose: bool = True) -> ad.AnnData:
-    """Apply Hamming clustering to correct barcode assignments.
+    """Filter cells by barcode pattern statistics.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     assignment_col : str
-        Column with barcode assignments
+        Name of barcode assignment column in adata.obs.
     confidence_col : str
-        Column with confidence scores
-    radius : int
-        Maximum Hamming distance (default: 2)
-    min_valid_count : int
-        Minimum count for cluster centers (default: 20)
-    low_confidence_percentile : float or None
-        Bottom N% eligible for clustering (default: None)
-    min_mean_conf : float
-        Minimum mean confidence for cluster centers (default: 0.0)
-    score_metric : str
-        Scoring metric: 'count' or 'mean_conf' (default: 'count')
-    save_results : bool
-        Save clustering results (default: True)
-    clustering_name : str, optional
-        Custom name for this clustering run
+        Name of confidence column in adata.obs.
+    metric : str
+        Pattern metric: 'count', 'median_conf', or 'score' (count * median_conf).
+        Default: 'count'.
+    method : str
+        Filtering method: 'threshold' or 'percentile'. Default: 'threshold'.
+    value : float
+        Threshold value. For 'threshold', patterns with metric >= value pass.
+        For 'percentile', patterns in top value% by metric pass. Default: 10.
+    filter_or_flag : str
+        'flag' to add boolean column, 'filter' to remove cells. Default: 'flag'.
+    exclude : str, optional
+        Boolean column in adata.obs. If provided, cells where this column is True
+        are excluded from metric calculation, but still included in filtering if
+        their pattern passes. Useful for excluding remapped cells when computing
+        pattern statistics post-hamming clustering.
+    filter_name : str, optional
+        Custom name for this filtering run. If None, auto-generates unique name.
     inplace : bool
-        Modify adata in place (default: True)
+        Modify adata in place. Default: True.
+    verbose : bool
+        Print progress. Default: True.
     
-    Returns:
-    --------
-    adata : AnnData
-        Modified AnnData with clustering results
+    Returns
+    -------
+    AnnData with filtering results.
     """
     if not inplace:
         adata = adata.copy()
     
     if assignment_col not in adata.obs.columns:
-        raise ValueError(f"Assignment column '{assignment_col}' not found")
-    
+        raise ValueError(f"Assignment column '{assignment_col}' not found in adata.obs")
     if confidence_col not in adata.obs.columns:
-        raise ValueError(f"Confidence column '{confidence_col}' not found")
+        raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
+    if exclude is not None and exclude not in adata.obs.columns:
+        raise ValueError(f"Exclude column '{exclude}' not found in adata.obs")
+    if metric not in {'count', 'median_conf', 'score'}:
+        raise ValueError(f"metric must be 'count', 'median_conf', or 'score', got {metric!r}")
+    if method not in {'threshold', 'percentile'}:
+        raise ValueError(f"method must be 'threshold' or 'percentile', got {method!r}")
+    if filter_or_flag not in {'flag', 'filter'}:
+        raise ValueError(f"filter_or_flag must be 'flag' or 'filter', got {filter_or_flag!r}")
     
-    if score_metric not in ['count', 'mean_conf']:
-        raise ValueError(f"score_metric must be 'count' or 'mean_conf'")
+    patterns = adata.obs[assignment_col].values.astype(str)
+    confidences = adata.obs[confidence_col].values.astype(np.float64)
     
-    clustering_name = clustering_name or assignment_col
-
-    if verbose:
-        print(f"Hamming clustering: radius={radius}, min_count={min_valid_count}")
-        if low_confidence_percentile:
-            print(f"  Eligible: bottom {low_confidence_percentile}% by confidence")
-        else:
-            print(f"  Eligible: all cells")
-    
-    patterns_str = adata.obs[assignment_col].values
-    confidences = adata.obs[confidence_col].values
-    n_cells = len(adata)
-    
-    barcodes = np.array([[int(c) for c in p] for p in patterns_str])
-    
-    if low_confidence_percentile is None:
-        low_conf_mask = np.ones(n_cells, dtype=bool)
+    # Determine which cells to include in metric calculation
+    if exclude is not None:
+        include_mask = ~adata.obs[exclude].values.astype(bool)
+        n_excluded = (~include_mask).sum()
+        if verbose:
+            print(f"Excluding {n_excluded} cells from metric calculation (column: '{exclude}')")
     else:
-        conf_threshold = np.percentile(confidences, low_confidence_percentile)
-        low_conf_mask = confidences <= conf_threshold
+        include_mask = np.ones(len(adata), dtype=bool)
     
-    n_eligible = low_conf_mask.sum()
-    if verbose:
-        print(f"  Eligible cells: {n_eligible}/{n_cells}")
-    
-    patterns = [tuple(bc) for bc in barcodes]
-    pattern_counts = Counter(patterns)
+    # Compute per-pattern statistics using only included cells
+    pattern_to_cells = {}
+    for i, p in enumerate(patterns):
+        if not include_mask[i]:
+            continue
+        if p not in pattern_to_cells:
+            pattern_to_cells[p] = []
+        pattern_to_cells[p].append(i)
     
     pattern_stats = {}
-    for pattern in pattern_counts:
-        pattern_mask = np.array([patterns[i] == pattern for i in range(n_cells)])
-        pattern_confs = confidences[pattern_mask]
-        pattern_stats[pattern] = {
-            'count': pattern_counts[pattern],
-            'mean': np.mean(pattern_confs),
-            'median': np.median(pattern_confs)
+    for p, indices in pattern_to_cells.items():
+        count = len(indices)
+        median_conf = float(np.median(confidences[indices]))
+        pattern_stats[p] = {
+            'count': count,
+            'median_conf': median_conf,
+            'score': count * median_conf
         }
     
-    absorbing_patterns = [p for p, stats in pattern_stats.items() 
-                         if is_valid_pattern(p) and stats['count'] > min_valid_count and stats['mean'] > min_mean_conf]
-
+    metric_values = np.array([pattern_stats[p][metric] for p in pattern_stats])
+    
+    if method == 'threshold':
+        threshold = value
+        if verbose:
+            print(f"Filter by pattern {metric} >= {threshold}")
+    else:  
+        threshold = np.percentile(metric_values, 100 - value)
+        if verbose:
+            print(f"Filter by pattern {metric} (top {value}%): threshold = {threshold:.4f}")
+    
+    passing_patterns = {p for p, stats in pattern_stats.items() if stats[metric] >= threshold}
+    n_patterns_pass = len(passing_patterns)
+    n_patterns_total = len(pattern_stats)
+    
+    pass_mask = np.array([p in passing_patterns for p in patterns])
+    n_pass = pass_mask.sum()
+    n_total = len(adata)
+    pct_pass = 100 * n_pass / n_total
+    
     if verbose:
-        print(f"  Absorbing patterns: {len(absorbing_patterns)}")
-        
-    method_name = assignment_col[:assignment_col.rfind('_')]
+        print(f"  Patterns passing: {n_patterns_pass}/{n_patterns_total}")
+        print(f"  Cells passing: {n_pass}/{n_total} ({pct_pass:.1f}%)")
     
-    if len(absorbing_patterns) == 0:
-        print("  [!] No valid absorbing patterns found. Skipping clustering.")
-        adata.obs[f"{method_name}_hamming_assignment"] = adata.obs[assignment_col]
-        adata.obs[f"{method_name}_hamming_confidence"] = adata.obs[confidence_col]
-        adata.obs[f"{method_name}_hamming_remapped"] = False
-        return adata
-    
-    pattern_scores = {p: (pattern_stats[p]['count'] if score_metric == 'count' else pattern_stats[p]['mean'])
-                     for p in absorbing_patterns}
-    
-    absorbing_array = np.array([list(p) for p in absorbing_patterns], dtype=np.int8)
-    absorbing_scores = np.array([pattern_scores[p] for p in absorbing_patterns])
-    
-    clustered_barcodes = barcodes.copy()
-    updated_confidences = confidences.copy()
-    remapped = np.zeros(n_cells, dtype=bool)
-    
-    for i in np.where(low_conf_mask)[0]:
-        current_pattern = patterns[i]
-        current_score = pattern_scores.get(current_pattern, -1)
+    # Handle flag column naming with auto-increment
+    if filter_or_flag == 'flag':
+        base_name = assignment_col.rsplit('_', 1)[0] if '_' in assignment_col else assignment_col
+        base_flag_col = f"{base_name}_pattern_pass"
         
-        hamming_dists = np.sum(absorbing_array != barcodes[i], axis=1)
-        valid_mask = (hamming_dists > 0) & (hamming_dists <= radius) & (hamming_dists % 2 == 0)
+        flag_col = base_flag_col
+        counter = 1
+        while flag_col in adata.obs.columns:
+            flag_col = f"{base_flag_col}_{counter}"
+            counter += 1
         
-        if not valid_mask.any():
-            continue
+        adata.obs[flag_col] = pass_mask
         
-        valid_indices = np.where(valid_mask)[0]
-        valid_dists = hamming_dists[valid_mask]
-        valid_scores = absorbing_scores[valid_mask]
+        if filter_name is None:
+            filter_name = flag_col
         
-        min_dist = valid_dists.min()
-        at_min_dist = valid_dists == min_dist
-        best_idx = valid_indices[at_min_dist][np.argmax(valid_scores[at_min_dist])]
+        if verbose:
+            print(f"  [+] Added flag column: adata.obs['{flag_col}']")
+    else:
+        adata = adata[pass_mask].copy()
         
-        if absorbing_scores[best_idx] > current_score:
-            best_pattern = absorbing_patterns[best_idx]
-            clustered_barcodes[i] = np.array(best_pattern)
-            updated_confidences[i] = pattern_stats[best_pattern]['median']
-            remapped[i] = True
+        if filter_name is None:
+            filter_name = assignment_col
+        
+        if verbose:
+            print(f"  [+] Filtered to {len(adata)} cells")
     
+    if 'pattern_filtering' not in adata.uns:
+        adata.uns['pattern_filtering'] = {}
+    
+    adata.uns['pattern_filtering'][filter_name] = {
+        'assignment_col': assignment_col,
+        'confidence_col': confidence_col,
+        'metric': metric,
+        'method': method,
+        'value': value,
+        'threshold': float(threshold),
+        'filter_or_flag': filter_or_flag,
+        'exclude': exclude,
+        'n_patterns_pass': int(n_patterns_pass),
+        'n_patterns_total': int(n_patterns_total),
+        'n_cells_pass': int(n_pass),
+        'n_cells_total': int(n_total),
+        'pct_cells_pass': float(pct_pass),
+    }
+    
+    if verbose:
+        print(f"  [+] Metadata saved: adata.uns['pattern_filtering']['{filter_name}']")
+    
+    return adata
+
+
+def hamming_cluster(adata: ad.AnnData,
+                    assignment_col: str,
+                    confidence_col: str,
+                    method: str = 'msg',
+                    radius: int = 2,
+                    ratio: float = 15.0,
+                    ratio_metric: str = 'count',
+                    tie_break: str = 'lda',
+                    test_conf: bool = True,
+                    low_conf_perc: Optional[float] = None,
+                    min_count_center: int = 1,
+                    layer: str = 'log',
+                    save_results: bool = True,
+                    inplace: bool = True,
+                    verbose: bool = True) -> ad.AnnData:
+    """Apply Hamming clustering to correct barcode assignments.
+    
+    Iteratively merges small/low-confidence patterns into larger neighbors.
+    Handles both valid patterns (4-of-9 in each block) and invalid patterns
+    (which are remapped unconditionally to nearest valid neighbor within radius).
+    
+    Recommended settings
+    --------------------
+    18-channel (2 blocks):
+        Default settings work well: method='msg', ratio=15, tie_break='lda', test_conf=True
+    
+    27-channel (3 blocks):
+        Lower ratio recommended due to sparser barcode space: ratio=5
+    
+    Small K (few barcodes):
+        Consider lowering ratio (e.g., 5-10) as patterns are more isolated.
+    
+    When to use 'sphere':
+        For more local control. Set min_count_center to a threshold above which 
+        patterns are likely real barcodes. Adjust radius based on expected Hamming 
+        distance between true barcodes (typically 2-4).
+    
+    Parameters
+    ----------
+    adata : AnnData
+        Annotated data with debarcoding results.
+    assignment_col : str
+        Column in adata.obs with barcode assignments.
+    confidence_col : str
+        Column in adata.obs with confidence scores (used for ratio_metric='score' 
+        and test_conf).
+    method : str
+        'msg' (message passing) or 'sphere' (local maxima). Default: 'msg'.
+    radius : int
+        Max Hamming distance for neighbor search. Default: 2.
+    ratio : float
+        Minimum ratio for remapping valid patterns. Default: 15.0.
+        Use ~15 for 18ch, ~5 for 27ch or small K.
+    ratio_metric : str
+        'count' (N_q >= ratio * N_p) or 'score' (count*conf_q >= ratio * count*conf_p). 
+        Default: 'count'.
+    tie_break : str
+        'no_remap', 'count', or 'lda'. Default: 'lda'.
+    test_conf : bool
+        Only remap valid patterns to higher confidence neighbors. Default: True.
+    low_conf_perc : float or None
+        Only remap bottom N% confidence cells. Default: None (all).
+    min_count_center : int
+        Min count for centers (sphere only). Default: 1.
+    layer : str
+        Data layer for LDA. Default: 'log'.
+    save_results : bool
+        Save metadata to adata.uns. Default: True.
+    inplace : bool
+        Modify in place. Default: True.
+    verbose : bool
+        Print progress. Default: True.
+    
+    Returns
+    -------
+    AnnData with columns added:
+        - `{base}_hamming_assignment`: corrected assignments
+        - `{base}_hamming_remapped`: boolean mask of remapped cells
+    where `base` is `assignment_col` with trailing suffix (e.g. '_assignment') stripped.
+    
+    Notes
+    -----
+    Invalid patterns (not 4-of-9 per block) are always remapped to the nearest
+    valid neighbor within radius without ratio/confidence tests. Valid patterns 
+    are remapped only to even-distance valid neighbors that pass ratio and 
+    confidence tests.
+    """
+    if method not in {"msg", "sphere"}:
+        raise ValueError(f"method must be 'msg' or 'sphere', got {method!r}")
+    if ratio_metric not in {"count", "score"}:
+        raise ValueError(f"ratio_metric must be 'count' or 'score', got {ratio_metric!r}")
+    if tie_break not in {"no_remap", "count", "lda"}:
+        raise ValueError(f"tie_break must be 'no_remap', 'count', or 'lda', got {tie_break!r}")
+    
+    if not inplace:
+        adata = adata.copy()
+    
+    base_name = assignment_col.rsplit('_', 1)[0] if '_' in assignment_col else assignment_col
+    patterns_str = adata.obs[assignment_col].values.astype(str)
+    confidences = adata.obs[confidence_col].values.astype(np.float64)
+    n_cells = len(adata)
+    
+    if verbose:
+        print(f"Hamming clustering: method={method}, radius={radius}, ratio={ratio}, "
+              f"ratio_metric={ratio_metric}, tie_break={tie_break}, test_conf={test_conf}")
+    
+    X = None
+    if tie_break == 'lda' and layer in adata.layers:
+        X = adata.layers[layer].astype(np.float64)
+        if 'barcode_channels' in adata.uns:
+            bc_idx = [list(adata.var_names).index(ch) for ch in adata.uns['barcode_channels']]
+            X = X[:, bc_idx]
+    
+    if low_conf_perc is not None:
+        eligible = confidences <= np.percentile(confidences, low_conf_perc)
+        eligible_idx = np.where(eligible)[0]
+        n_eligible = len(eligible_idx)
+        if verbose:
+            print(f"  Eligible: bottom {low_conf_perc}% ({n_eligible}/{n_cells} cells)")
+    else:
+        eligible_idx = np.arange(n_cells)
+        n_eligible = n_cells
+        if verbose:
+            print(f"  Eligible: all cells ({n_cells})")
+    
+    p_sub, c_sub = patterns_str[eligible_idx], confidences[eligible_idx]
+    X_sub = X[eligible_idx] if X is not None else None
+    
+    if method == 'msg':
+        new_p, _, stats = _msg_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, ratio_metric)
+    else:
+        new_p, _, stats = _sphere_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, min_count_center, ratio_metric)
+    
+    new_patterns = patterns_str.copy()
+    new_patterns[eligible_idx] = new_p
+    remapped = new_patterns != patterns_str
     n_remapped = remapped.sum()
     pct_remapped = 100 * n_remapped / n_cells
+    
     if verbose:
         print(f"  Remapped: {n_remapped}/{n_cells} cells ({pct_remapped:.1f}%)")
+        if stats.get('n_ties', 0) > 0:
+            print(f"  Ties encountered: {stats['n_ties']}, LDA applied: {stats.get('n_lda', 0)}")
+        if 'n_centers' in stats:
+            print(f"  Centers found: {stats['n_centers']}")
     
-    adata.obs[f"{method_name}_hamming_assignment"] = ["".join(map(str, row)) for row in clustered_barcodes]
-    adata.obs[f"{method_name}_hamming_confidence"] = updated_confidences
-    adata.obs[f"{method_name}_hamming_remapped"] = remapped
+    adata.obs[f"{base_name}_hamming_assignment"] = new_patterns
+    adata.obs[f"{base_name}_hamming_remapped"] = remapped
     
     if save_results:
         if 'hamming_clustering' not in adata.uns:
             adata.uns['hamming_clustering'] = {}
         
-        adata.uns['hamming_clustering'][clustering_name] = {
-            'clustering_name': clustering_name,
-            'assignment_col': assignment_col,
-            'confidence_col': confidence_col,
+        metadata = {
+            'method': method,
             'radius': radius,
-            'min_valid_count': min_valid_count,
-            'low_confidence_percentile': low_confidence_percentile,
-            'min_mean_conf': min_mean_conf,
-            'score_metric': score_metric,
-            'n_absorbing_patterns': len(absorbing_patterns),
+            'ratio': ratio,
+            'ratio_metric': ratio_metric,
+            'tie_break': tie_break,
+            'test_conf': test_conf,
+            'low_conf_perc': low_conf_perc,
+            'min_count_center': min_count_center if method == 'sphere' else None,
             'n_eligible': int(n_eligible),
             'n_remapped': int(n_remapped),
             'pct_remapped': float(pct_remapped),
-            'output_assignment_col': f"{method_name}_hamming_assignment",
-            'output_confidence_col': f"{method_name}_hamming_confidence",
-            'output_remapped_col': f"{assignment_col}_hamming_remapped"
+            'output_assignment_col': f"{base_name}_hamming_assignment",
+            'output_remapped_col': f"{base_name}_hamming_remapped",
+            'n_ties': stats.get('n_ties', 0),
+            'n_lda': stats.get('n_lda', 0),
+            'n_stayed': stats.get('n_stayed', 0),
+            'n_moved': stats.get('n_moved', 0),
         }
+        if method == 'sphere':
+            metadata['n_centers'] = stats.get('n_centers', 0)
+            metadata['centers'] = stats.get('centers', [])
+        
+        adata.uns['hamming_clustering'][assignment_col] = metadata
         if verbose:
-            print(f"  [+] Clustering saved in adata.uns['hamming_clustering']['{clustering_name}']")
-
+            print(f"  [+] Clustering saved in adata.uns['hamming_clustering']['{assignment_col}']")
+    
     if verbose:
         print(f"  [+] Results stored in:")
-        print(f"    - adata.obs['{method_name}_hamming_assignment']")
-        print(f"    - adata.obs['{method_name}_hamming_confidence']")
-        print(f"    - adata.obs['{method_name}_hamming_remapped']")
+        print(f"      - adata.obs['{base_name}_hamming_assignment']")
+        print(f"      - adata.obs['{base_name}_hamming_remapped']")
     
     return adata
 

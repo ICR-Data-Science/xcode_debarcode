@@ -4,7 +4,7 @@ import anndata as ad
 from typing import Optional, List, Union, Tuple 
 from itertools import combinations
 
-__all__ = ["classify_pattern", "is_valid_pattern", "pattern_to_indices", 
+__all__ = ["is_valid_pattern", "pattern_to_indices", 
            "indices_to_pattern", "hamming_distance", "get_pattern_statistics"]
 
 
@@ -43,32 +43,26 @@ def _generate_4_of_9_patterns(n_blocks: int = 1) -> np.ndarray:
     return all_patterns
 
 
-def classify_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> str:
-    """Classify barcode pattern as valid/invalid based on 4-4-...-4 rule.
-    
-    Supports arbitrary number of 4-plexes (groups of 9 channels).
-    Each group must sum to exactly 4 for a valid barcode.
+def is_valid_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> bool:
+    """Check if pattern is valid (4-4-...-4).
     
     Parameters:
     -----------
     pattern : str, list, tuple, or array
-        Binary pattern to classify
+        Binary pattern to check
     
     Returns:
     --------
-    classification : str
-        One of: 'valid', 
-        'invalid_doublet' (too many ON channels), 
-        'invalid_debris' (too few ON channels), 
-        'invalid_misc' (valid ON channels number but still invalid)
+    is_valid : bool
+        True if pattern is valid (all blocks sum to 4)
     """
-    # Convert to list if needed
     if isinstance(pattern, str):
         pattern = [int(c) for c in pattern]
     elif isinstance(pattern, tuple):
         pattern = list(pattern)
     elif isinstance(pattern, np.ndarray):
         pattern = pattern.tolist()
+
     
     # Check if length is multiple of 9
     if len(pattern) % 9 != 0:
@@ -87,23 +81,14 @@ def classify_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> 
     expected_total = 4 * n_groups
     
     # All groups must sum to 4 for valid barcode
-    if all(s == 4 for s in group_sums):
-        return "valid"
-    elif total > expected_total:
-        return "invalid_doublet"
-    elif total < expected_total:
-        return "invalid_debris"
-    else:
-        return "invalid_misc"
+    return all(s == 4 for s in group_sums)
+
 
 def add_barcode_validity(adata: ad.AnnData,
                         assignment_col: str,
                         validity_col: Optional[str] = None,
                         inplace: bool = True) -> ad.AnnData:
-    """Add barcode validity classification to adata.obs.
-    
-    Classifies each barcode pattern as 'valid', 'invalid_doublet', 
-    'invalid_debris', or 'invalid_misc' and adds the result as a new column.
+    """Add boolean barcode validity column to adata.obs.
     
     Parameters:
     -----------
@@ -116,8 +101,6 @@ def add_barcode_validity(adata: ad.AnnData,
         '{assignment_col}_validity'
     inplace : bool
         Modify adata in place (default: True)
-    verbose : bool
-        Print validity statistics (default: True)
     
     Returns:
     --------
@@ -133,25 +116,9 @@ def add_barcode_validity(adata: ad.AnnData,
     if validity_col is None:
         validity_col = f'{assignment_col}_validity'
     
-    adata.obs[validity_col] = adata.obs[assignment_col].apply(classify_pattern)
+    adata.obs[validity_col] = adata.obs[assignment_col].apply(is_valid_pattern)
         
     return adata
-
-
-def is_valid_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> bool:
-    """Check if pattern is valid (4-4-...-4).
-    
-    Parameters:
-    -----------
-    pattern : str, list, tuple, or array
-        Binary pattern to check
-    
-    Returns:
-    --------
-    is_valid : bool
-        True if pattern is valid (all blocks sum to 4)
-    """
-    return classify_pattern(pattern) == "valid"
 
 
 def pattern_to_indices(pattern: Union[str, List[int], Tuple[int], np.ndarray],
@@ -269,11 +236,7 @@ def get_pattern_statistics(adata: ad.AnnData,
         - n_invalid: number of cells with invalid patterns
         - pct_valid: percentage of cells with valid patterns
         - most_common: list of (pattern, count) tuples for top 10
-        - validity_breakdown: counts by validity type
-        - pattern_counts: pandas Series with all pattern counts
     """
-    import pandas as pd
-    
     if assignment_col not in adata.obs.columns:
         raise ValueError(f"Column '{assignment_col}' not found in adata.obs")
     
@@ -284,20 +247,12 @@ def get_pattern_statistics(adata: ad.AnnData,
     n_unique_patterns = len(pattern_counts)
     
     unique_patterns = pattern_counts.index.tolist()
-    classifications = {p: classify_pattern(p) for p in unique_patterns}
+    classifications = {p: is_valid_pattern(p) for p in unique_patterns}
     
-    # Count validity types
-    validity_counts = {}
-    for pattern, count in pattern_counts.items():
-        validity = classifications[pattern]
-        validity_counts[validity] = validity_counts.get(validity, 0) + count
-    
-    # Calculate valid/invalid counts
-    n_valid = validity_counts.get('valid', 0)
+    n_valid = sum(count for pattern, count in pattern_counts.items() if classifications[pattern])
     n_invalid = n_cells - n_valid
     pct_valid = 100 * n_valid / n_cells if n_cells > 0 else 0
     
-    # Most common patterns
     most_common = list(pattern_counts.head(10).items())
     
     stats = {
@@ -308,8 +263,6 @@ def get_pattern_statistics(adata: ad.AnnData,
         'n_invalid': int(n_invalid),
         'pct_valid': float(pct_valid),
         'most_common': most_common,
-        'validity_breakdown': validity_counts,
-        'pattern_counts': pattern_counts  
     }
     
     if verbose:
@@ -319,17 +272,11 @@ def get_pattern_statistics(adata: ad.AnnData,
         print(f"  Valid patterns: {n_valid:,} ({pct_valid:.1f}%)")
         print(f"  Invalid patterns: {n_invalid:,} ({100-pct_valid:.1f}%)")
         
-        if n_invalid > 0:
-            print(f"\n  Validity breakdown:")
-            for validity_type, count in validity_counts.items():
-                pct = 100 * count / n_cells
-                print(f"    {validity_type}: {count:,} ({pct:.1f}%)")
-        
         print(f"\n  Top 5 patterns:")
         for i, (pattern, count) in enumerate(most_common[:5], 1):
             pct = 100 * count / n_cells
-            validity = classifications[pattern]
-            status = "valid" if validity == "valid" else "invalid"
+            valid = classifications[pattern]
+            status = "valid" if valid else "invalid"
             print(f"    {i}. [{status}] {pattern[:20]}... : {count:,} cells ({pct:.1f}%)")
     
     return stats
