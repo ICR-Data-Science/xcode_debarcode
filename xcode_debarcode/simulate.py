@@ -3,17 +3,86 @@ import numpy as np
 import anndata as ad
 from typing import Optional, Dict
 from collections import Counter
-from .barcode import _generate_4_of_9_patterns
+from scipy.stats import norm
+from scipy.optimize import brentq
+
 
 __all__ = ["simulate_cytof_barcodes", "analyze_simulation"]
 
 
-def _generate_channel_parameters(n_channels: int, rng: np.random.RandomState) -> Dict:
+def _compute_gmm_boundary(separation: float, sigma_off: float = 0.5, 
+                          sigma_on: float = 0.35) -> float:
+    """Compute GMM decision boundary assuming equal priors and mu_off=0."""
+    a = 1/sigma_on**2 - 1/sigma_off**2
+    b = -2*separation/sigma_on**2
+    c = separation**2/sigma_on**2 - 2*np.log(sigma_off/sigma_on)
+    
+    discriminant = b**2 - 4*a*c
+    if discriminant < 0:
+        return separation / 2
+    
+    x1 = (-b + np.sqrt(discriminant)) / (2*a)
+    x2 = (-b - np.sqrt(discriminant)) / (2*a)
+    
+    # Return the boundary between the means
+    if 0 < x1 < separation:
+        return x1
+    elif 0 < x2 < separation:
+        return x2
+    return separation / 2
+
+
+def _compute_channel_error_rate(separation: float, sigma_off: float = 0.5,
+                                sigma_on: float = 0.35) -> float:
+    """Compute expected error rate for a channel with given separation.
+    
+    Assumes 4-of-9 pattern weighting (5/9 off, 4/9 on).
+    """
+    if separation <= 0:
+        return 0.5
+    
+    boundary = _compute_gmm_boundary(separation, sigma_off, sigma_on)
+    p_off_to_on = 1 - norm.cdf(boundary / sigma_off)
+    p_on_to_off = norm.cdf((boundary - separation) / sigma_on)
+    
+    return (5/9) * p_off_to_on + (4/9) * p_on_to_off
+
+
+def _separation_from_error_rate(target_error: float, sigma_off: float = 0.5,
+                                sigma_on: float = 0.35) -> float:
+    """Find separation that produces target error rate."""
+    def objective(sep):
+        return _compute_channel_error_rate(sep, sigma_off, sigma_on) - target_error
+    
+    # Check bounds
+    min_err = _compute_channel_error_rate(10.0, sigma_off, sigma_on)
+    max_err = _compute_channel_error_rate(0.1, sigma_off, sigma_on)
+    
+    if target_error <= min_err:
+        return 10.0
+    if target_error >= max_err:
+        return 0.1
+    
+    return brentq(objective, 0.1, 10.0)
+
+
+def _generate_channel_parameters(n_channels: int, rng: np.random.RandomState,
+                                 target_error_rate: Optional[float] = None) -> Dict:
     """Generate random channel parameters for simulation."""
     params = {}
+    
+    if target_error_rate is not None:
+        base_separation = _separation_from_error_rate(target_error_rate)
+    
     for g in range(n_channels):
         mu_off = rng.uniform(0.7, 1.8)
-        separation = rng.uniform(1.0, 1.8)
+        
+        if target_error_rate is not None:
+            # Add variation similar to default range (0.8 spread)
+            separation = max(0.2, base_separation + rng.uniform(-0.4, 0.4))
+        else:
+            separation = rng.uniform(1.0, 1.8)
+        
         params[f's_{g+1}'] = {
             'mu_off': mu_off,
             'sigma_off': 0.5,
@@ -28,6 +97,7 @@ def simulate_cytof_barcodes(
     n_channels: int = 27,
     n_barcodes: Optional[int] = None,
     channel_params: Optional[Dict] = None,
+    target_error_rate: Optional[float] = None,
     unbarcoded_fraction: float = 0.00,
     alpha: float = 1.0,
     random_seed: Optional[int] = None,
@@ -38,35 +108,63 @@ def simulate_cytof_barcodes(
     Generates CyTOF barcode data with known ground truth for testing
     and benchmarking debarcoding methods.
     
-    Parameters:
-    -----------
-    n_cells : int
-        Total number of cells to simulate (default: 10000)
-    n_channels : int
-        Number of barcode channels (default: 27)
+    Parameters
+    ----------
+    n_cells : int, default 10000
+        Total number of cells to simulate.
+    n_channels : int, default 27
+        Number of barcode channels. Must be a multiple of 9.
     n_barcodes : int, optional
-        Number of unique barcodes to use
+        Number of unique barcodes to use. If None, randomly selected.
     channel_params : dict, optional
-        Custom channel parameters
-    unbarcoded_fraction : float
-        Fraction of cells without barcode (default: 0.0)
-    alpha : float
-        Dirichlet concentration parameter (default: 1.0)
+        Custom channel parameters for simulation. If None, randomly generated.
+    target_error_rate : float, optional
+        Target mean per-channel error rate (probability of a sample falling
+        on the wrong side of the GMM decision boundary). Only used when
+        channel_params is None. Separation is calibrated to achieve this
+        error rate on average, with per-channel variation.
+        Typical values: 0.01-0.15. Default behavior (~0.05) when None.
+    unbarcoded_fraction : float, default 0.0
+        Fraction of cells without barcode (in [0, 1)).
+    alpha : float, default 1.0
+        Dirichlet concentration parameter for barcode distribution.
     random_seed : int, optional
-        Random seed for reproducibility
-    verbose : bool
-        Print progress messages (default: True)
+        Random seed for reproducibility.
+    verbose : bool, default True
+        Print progress messages.
     
-    Returns:
+    Returns
+    -------
+    AnnData
+        Simulated raw intensity data with ground truth:
+        
+        - ``adata.obs['ground_truth_pattern']``: true barcode patterns
+        - ``adata.obs['ground_truth_barcode']``: true barcode labels
+        - ``adata.obs['is_barcoded']``: whether cell has a barcode
+        - ``adata.uns['simulation']``: simulation parameters and statistics
+    
+    Raises
+    ------
+    ValueError
+        If n_channels is not a multiple of 9 or unbarcoded_fraction is invalid.
+    
+    Examples
     --------
-    adata : AnnData
-        Simulated raw intensity data with ground truth
+    >>> adata = simulate_cytof_barcodes(n_cells=10000, n_channels=18)
+    >>> adata = simulate_cytof_barcodes(n_cells=50000, random_seed=42)
+    >>> adata = simulate_cytof_barcodes(target_error_rate=0.10)  # 10% error
     """
+    # Import here to avoid circular dependency
+    from .barcode import _generate_4_of_9_patterns
+    
     if n_channels % 9 != 0:
         raise ValueError(f"n_channels must be multiple of 9, got {n_channels}")
     
     if not 0 <= unbarcoded_fraction < 1:
         raise ValueError(f"unbarcoded_fraction must be in [0, 1), got {unbarcoded_fraction}")
+    
+    if target_error_rate is not None and not 0 < target_error_rate < 0.5:
+        raise ValueError(f"target_error_rate must be in (0, 0.5), got {target_error_rate}")
     
     rng = np.random.RandomState(random_seed)
     
@@ -76,8 +174,12 @@ def simulate_cytof_barcodes(
         print("="*80)
         print(f"\nCells: {n_cells:,}, channels: {n_channels}, Blocks: {n_channels // 9}")
         print(f"Unbarcoded: {unbarcoded_fraction:.1%}, Alpha: {alpha}, Seed: {random_seed}")
+        if target_error_rate is not None:
+            print(f"Target error rate: {target_error_rate:.1%}")
     
-    channel_params = channel_params or _generate_channel_parameters(n_channels, rng)
+    if channel_params is None:
+        channel_params = _generate_channel_parameters(n_channels, rng, target_error_rate)
+    
     if len(channel_params) != n_channels:
         raise ValueError(f"channel_params must have {n_channels} channels, got {len(channel_params)}")
     
@@ -172,6 +274,14 @@ def simulate_cytof_barcodes(
     barcode_counts = Counter(ground_truth_labels)
     barcode_counts.pop('unbarcoded', None)
     
+    # Compute actual mean error rate from generated parameters
+    actual_error_rates = []
+    for g in range(n_channels):
+        params = channel_params[f's_{g+1}']
+        sep = params['mu_on'] - params['mu_off']
+        actual_error_rates.append(_compute_channel_error_rate(sep))
+    mean_actual_error = np.mean(actual_error_rates)
+    
     adata.uns['simulation'] = {
         'n_cells': n_cells,
         'n_channels': n_channels,
@@ -184,6 +294,8 @@ def simulate_cytof_barcodes(
         'unbarcoded_fraction': unbarcoded_fraction,
         'alpha': alpha,
         'random_seed': random_seed,
+        'target_error_rate': target_error_rate,
+        'mean_actual_error_rate': float(mean_actual_error),
         'channel_params': channel_params,
         'selected_pattern_indices': selected_indices.tolist(),
         'barcode_statistics': {
@@ -197,6 +309,7 @@ def simulate_cytof_barcodes(
     
     if verbose:
         print(f"\nShape: {adata.shape}")
+        print(f"Mean actual error rate: {mean_actual_error:.2%}")
         print("="*80)
         print("SIMULATION COMPLETE")
         print("="*80)
@@ -211,19 +324,37 @@ def analyze_simulation(adata: ad.AnnData,
                       verbose: bool = True) -> Dict:
     """Analyze debarcoding results against ground truth.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        AnnData with simulation ground truth and debarcoding results
+        AnnData with simulation ground truth and debarcoding results.
     assignment_col : str
-        Column with debarcoding assignments to evaluate
-    verbose : bool
-        Print statistics (default: True)
+        Column with debarcoding assignments to evaluate.
+    verbose : bool, default True
+        Print statistics.
     
-    Returns:
+    Returns
+    -------
+    dict
+        Performance metrics:
+        
+        - accuracy : fraction of valid assignments that are correct
+        - coverage : fraction of cells with valid assignments
+        - f1 : harmonic mean of accuracy and coverage
+        - n_cells : total number of cells
+        - n_barcoded : number of barcoded cells
+        - n_valid_assigned : number of cells with valid assignments
+        - n_correct : number of correct assignments
+    
+    Raises
+    ------
+    ValueError
+        If adata lacks simulation metadata or required columns.
+    
+    Examples
     --------
-    results : dict
-        Performance metrics including accuracy, coverage, and F1
+    >>> results = analyze_simulation(adata, 'pc_gmm_assignment')
+    >>> print(f"Accuracy: {results['accuracy']:.2%}")
     """
     from .barcode import is_valid_pattern
     
