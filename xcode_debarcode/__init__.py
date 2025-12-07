@@ -1,41 +1,39 @@
-"""xcode_debarcode - CyTOF barcode gating toolkit
+"""
+xcode_debarcode - CyTOF barcode gating toolkit.
 
 Multi-method debarcoding with preprocessing, debarcoding, and postprocessing.
 
-Public sub-modules
-------------------
-    io             : Data I/O and channel mapping
-    preprocessing  : Data transformation (log, arcsinh), and intensity outlier filtering
-    debarcode      : Debarcoding methods (GMM, PreMessa, PC-GMM, Scoring, Auto)
-    postprocessing : Filtering, Hamming clustering, Mahalanobis filtering
-    barcode        : Pattern analysis utilities
-    plots          : Interactive visualisations
-    simulate       : Synthetic data generation
-    
-Methods Overview
----------------
-    GMM (Gaussian Mixture Model):
-        - Channel-level 2-component GMM
-        - Independent per-channel classification
-        
-    PreMessa:
-        - Top-4 channel selection per barcode block
-        - Separation-based confidence scoring
-        
-    PC-GMM (Pattern-Constrained GMM):
-        - Channel-level GMMs + valid pattern constraints
-        - Maximum likelihood pattern selection
-        
-    Scoring:
-        - Score-based pattern matching
-        - Mean-centered intensity scoring
-        
-    Auto:
-        - Adaptive method selection based on PC-GMM mean confidence
-        - PC-GMM with fallback to Scoring
+Submodules
+----------
+io
+    Data I/O and channel mapping.
+preprocessing
+    Data transformation (log, arcsinh) and intensity outlier filtering.
+debarcode
+    Debarcoding methods (GMM-CH, CGMM-CH, GMM-B, PreMessa, Manual).
+postprocessing
+    Filtering, Hamming clustering, Mahalanobis filtering.
+barcode
+    Pattern analysis utilities.
+plots
+    Interactive visualizations.
+simulate
+    Synthetic data generation.
 
-    Manual:
-        - Manual user-fixed per-channel thresholding
+Methods Overview
+----------------
+GMM-CH (Per-Channel GMM)
+    Independent 2-component GMM per channel. Can produce invalid patterns.
+CGMM-CH (Constrained Per-Channel GMM)
+    Per-channel GMMs with valid pattern constraints and maximum likelihood selection.
+    Best for bimodal channel distributions.
+GMM-B (Per-Barcode GMM)
+    Blockwise 126-component GMM using all valid 4-of-9 patterns.
+    Best when some channels have unimodal distributions.
+PreMessa
+    Top-4 channel selection per barcode block with separation-based confidence.
+Manual
+    User-defined per-channel thresholding.
 """
 from importlib import metadata
 from . import io, preprocessing, debarcode, postprocessing, barcode, plots, simulate

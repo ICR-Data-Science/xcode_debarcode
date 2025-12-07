@@ -4,7 +4,6 @@ import anndata as ad
 import warnings
 from typing import Optional, List, Dict, Tuple
 from sklearn.mixture import GaussianMixture
-from scipy.special import logsumexp
 from .barcode import _generate_4_of_9_patterns
 
 __all__ = ["debarcode", "debarcoding_pipeline"]
@@ -62,13 +61,17 @@ def _fit_gmm_channel(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dic
         return None
 
 
-def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """PC-GMM: Pattern-Constrained Gaussian Mixture Model."""
+def _cgmm_ch(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """Constrained GMM per channel: Pattern-Constrained Gaussian Mixture Model.
+    
+    Fits 2-component GMM per channel to estimate ON/OFF distributions,
+    then assigns cells to valid 4-of-9 patterns via maximum likelihood.
+    """
     n_cells, n_channels = X.shape
     n_blocks = n_channels // 9
     
     if verbose:
-        print(f"PC-GMM: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
+        print(f"CGMM-CH: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
     
     channel_params = {}
     failed_channels = []
@@ -125,17 +128,21 @@ def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool 
         confidences *= best_conf
     
     if verbose:
-        print(f"PC-GMM: Complete. Mean confidence: {confidences.mean():.4f}")
+        print(f"CGMM-CH: Complete. Mean confidence: {confidences.mean():.4f}")
     
     return barcodes, confidences, channel_params
 
 
-def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: float = 0.5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """GMM: Gaussian Mixture Model."""
+def _gmm_ch(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: float = 0.5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """GMM per channel: Independent Gaussian Mixture Model per channel.
+    
+    Fits 2-component GMM per channel and classifies each channel independently.
+    Can produce invalid patterns (not constrained to 4-of-9).
+    """
     n_cells, n_channels = X.shape
     
     if verbose:
-        print(f"GMM: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
+        print(f"GMM-CH: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
     
     channel_params = {}
     barcodes = np.zeros((n_cells, n_channels), dtype=int)
@@ -159,9 +166,71 @@ def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: floa
     confidences = np.prod(channel_probs, axis=1)
     
     if verbose:
-        print(f"GMM: Complete. Mean confidence: {confidences.mean():.4f}")
+        print(f"GMM-CH: Complete. Mean confidence: {confidences.mean():.4f}")
     
     return barcodes, confidences, channel_params
+
+
+def _gmm_b(X: np.ndarray, n_init: int = 5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """GMM per barcode block: Blockwise 126-component GMM.
+    
+    For each 9-channel block, fits a 126-component GMM initialized with all
+    valid 4-of-9 patterns. Unused components get near-zero weight. Best when
+    some per-channel distributions are unimodal.
+    """
+    n_cells, n_channels = X.shape
+    n_blocks = n_channels // 9
+    
+    if verbose:
+        print(f"GMM-B: Processing {n_channels} channels, {n_cells} cells, {n_blocks} blocks (n_init={n_init})")
+    
+    valid_4of9 = _generate_4_of_9_patterns(n_blocks=1).astype(np.float64)
+    
+    barcodes = np.zeros((n_cells, n_channels), dtype=np.int8)
+    confidences = np.ones(n_cells)
+    block_info = {}
+    
+    for b in range(n_blocks):
+        start, end = b * 9, (b + 1) * 9
+        X_block = X[:, start:end]
+        
+        # Per-channel scaling for initialization
+        p25 = np.percentile(X_block, 25, axis=0)
+        p75 = np.percentile(X_block, 75, axis=0)
+        init_means = valid_4of9 * (p75 - p25) + p25
+        
+        gmm = GaussianMixture(
+            n_components=126,
+            means_init=init_means,
+            covariance_type='diag',
+            max_iter=100,
+            n_init=n_init,
+            random_state=42,
+            reg_covar=1e-4,
+        )
+        
+        gmm.fit(X_block)
+        labels = gmm.predict(X_block)
+        probs = gmm.predict_proba(X_block)
+        
+        # Map GMM components to nearest valid patterns
+        scores = gmm.means_ @ valid_4of9.T
+        component_to_pattern = np.argmax(scores, axis=1)
+        
+        pattern_idx = component_to_pattern[labels]
+        barcodes[:, start:end] = valid_4of9[pattern_idx].astype(np.int8)
+        confidences *= probs[np.arange(n_cells), labels]
+        
+        n_active = (gmm.weights_ > 0.01).sum()
+        block_info[f'block_{b}'] = {'n_active_components': int(n_active)}
+        
+        if verbose:
+            print(f"  Block {b+1}: {n_active} active components")
+    
+    if verbose:
+        print(f"GMM-B: Complete. Mean confidence: {confidences.mean():.4f}")
+    
+    return barcodes, confidences, {'method': 'gmm_b', 'blocks': block_info}
 
 
 def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
@@ -195,56 +264,6 @@ def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarr
     return barcodes, confidences, {'method': 'premessa'}
 
 
-def _scoring(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """Scoring: Correlation-based pattern matching."""
-    n_cells, n_channels = X.shape
-    n_blocks = n_channels // 9
-    
-    if verbose:
-        print(f"Scoring: Processing {n_channels} channels, {n_cells} cells")
-    
-    valid_patterns = _generate_4_of_9_patterns(n_blocks=1)
-    barcodes = np.zeros((n_cells, n_channels), dtype=int)
-    overall_confidences = np.ones(n_cells)
-    
-    for b in range(n_blocks):
-        start, end = b * 9, (b + 1) * 9
-        X_block = X[:, start:end]
-        X_centered = X_block - X_block.mean(axis=1, keepdims=True)
-        
-        log_probs = np.sum(X_centered[:, np.newaxis, :] * (2 * valid_patterns[np.newaxis, :, :] - 1), axis=2)
-        log_probs -= logsumexp(log_probs, axis=1, keepdims=True)
-        probs = np.exp(log_probs)
-        
-        best_idx = np.argmax(probs, axis=1)
-        barcodes[:, start:end] = valid_patterns[best_idx]
-        overall_confidences *= probs[np.arange(n_cells), best_idx]
-    
-    if verbose:
-        print(f"Scoring: Complete. Mean confidence: {overall_confidences.mean():.4f}")
-    
-    return barcodes, overall_confidences, {'method': 'scoring'}
-
-
-def _auto(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, mean_conf_switch: float = 0.5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, List, str]:
-    """Auto: PC-GMM with fallback to Scoring."""
-    if verbose:
-        print("Auto: Trying PC-GMM first...")
-    
-    barcodes, confidences, channel_params = _pc_gmm(X, n_init, min_int, verbose=False)
-    mean_conf = confidences.mean()
-    
-    if mean_conf >= mean_conf_switch:
-        if verbose:
-            print(f"Auto: Using PC-GMM (mean confidence: {mean_conf:.4f})")
-        return barcodes, confidences, channel_params, 'pc_gmm'
-    else:
-        if verbose:
-            print(f"Auto: PC-GMM low confidence ({mean_conf:.4f}), using Scoring...")
-        barcodes, confidences, channel_params = _scoring(X, verbose=False)
-        return barcodes, confidences, channel_params, 'scoring'
-
-
 def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """Manual: Threshold-based gating."""
     n_cells, n_channels = X.shape
@@ -269,51 +288,65 @@ def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tup
 
 
 def debarcode(adata: ad.AnnData,
-             method: str = 'auto',
+             method: str = 'cgmm_ch',
              layer: Optional[str] = None,
              n_init: int = 5,
              min_int: float = 0.1,
              prob_thresh: float = 0.5,
-             mean_conf_switch: float = 0.5,
              thresholds: Optional[List[float]] = None,
              method_name: Optional[str] = None,
              inplace: bool = True,
              verbose: bool = True) -> ad.AnnData:
     """Apply debarcoding to assign barcodes to cells.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
-    method : str
-        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'scoring', 'auto', 'manual'
+        Annotated data object.
+    method : {'gmm_ch', 'cgmm_ch', 'gmm_b', 'premessa', 'manual'}, default 'cgmm_ch'
+        Debarcoding method:
+        
+        - 'gmm_ch': Per-channel GMM. Independent 2-component GMM per channel.
+          Can produce invalid patterns (not constrained to 4-of-9).
+        - 'cgmm_ch': Constrained per-channel GMM (default). Fits per-channel
+          GMMs then assigns to valid 4-of-9 patterns via maximum likelihood.
+          Best for bimodal channel distributions.
+        - 'gmm_b': Per-barcode GMM. Fits 126-component GMM per block using
+          all valid patterns. Best when some channels have unimodal distributions.
+        - 'premessa': Top-4 selection per block with separation-based confidence.
+        - 'manual': Fixed user-defined thresholds per channel.
     layer : str, optional
-        Layer to use for debarcoding
-    n_init : int
-        GMM initializations (default: 5)
-    min_int : float
-        Minimum intensity (default: 0.1)
-    prob_thresh : float
-        GMM probability threshold (default: 0.5)
-    mean_conf_switch : float
-        Auto method switch threshold (default: 0.5)
+        Layer to use for debarcoding. Recommend using transformed layer.
+    n_init : int, default 5
+        GMM initializations (for gmm_ch/cgmm_ch/gmm_b).
+    min_int : float, default 0.1
+        Minimum intensity for GMM fitting (for gmm_ch/cgmm_ch).
+    prob_thresh : float, default 0.5
+        GMM probability threshold (for 'gmm_ch' method).
     thresholds : list of float, optional
-        Manual thresholds for 'manual' method
+        Manual thresholds for 'manual' method (one per channel).
     method_name : str, optional
         Custom name for this debarcoding run. If None, uses method name
-        and auto-increments if exists (e.g., 'pc_gmm', 'pc_gmm_1', 'pc_gmm_2').
-    inplace : bool
-        Modify adata in place (default: True)
-    verbose : bool
-        Print progress messages (default: True)
+        and auto-increments if exists (e.g., 'cgmm_ch', 'cgmm_ch_1').
+    inplace : bool, default True
+        Modify adata in place.
+    verbose : bool, default True
+        Print progress messages.
     
-    Returns:
-    --------
-    adata : AnnData
+    Returns
+    -------
+    AnnData
         Modified AnnData with debarcoding results:
-        - adata.obs['{method_name}_assignment']: Assigned barcode patterns
-        - adata.obs['{method_name}_confidence']: Confidence scores
-        - adata.uns['debarcoding']['{method_name}']: Method metadata
+        
+        - ``adata.obs['{method_name}_assignment']``: Assigned barcode patterns
+        - ``adata.obs['{method_name}_confidence']``: Confidence scores
+        - ``adata.uns['debarcoding']['{method_name}']``: Method metadata
+    
+    Examples
+    --------
+    >>> adata = debarcode(adata, method='cgmm_ch', layer='log')
+    >>> adata = debarcode(adata, method='gmm_b', layer='log')  # For low K
+    >>> adata = debarcode(adata, method='manual', thresholds=[1.5]*27)
     """
     from .io import get_barcode_channels
     barcode_channels = get_barcode_channels(adata)
@@ -325,7 +358,7 @@ def debarcode(adata: ad.AnnData,
         adata = adata.copy()
     
     if layer is None:
-        if method in ['gmm', 'pc_gmm', 'scoring', 'auto']:
+        if method in ['gmm_ch', 'cgmm_ch', 'gmm_b']:
             warnings.warn(
                 f"Using method '{method}' without a transformed layer. "
                 f"Recommend: preprocessing.transform(adata, method='log') and pass layer='log'.",
@@ -343,12 +376,11 @@ def debarcode(adata: ad.AnnData,
     final_method_name = _get_unique_method_name(adata, method, method_name)
     
     methods = {
-        'manual': lambda: (_manual(X, thresholds, verbose), None),
-        'gmm': lambda: (_gmm(X, n_init, min_int, prob_thresh, verbose), None),
-        'premessa': lambda: (_premessa(X, verbose), None),
-        'pc_gmm': lambda: (_pc_gmm(X, n_init, min_int, verbose), None),
-        'scoring': lambda: (_scoring(X, verbose), None),
-        'auto': lambda: _auto(X, n_init, min_int, mean_conf_switch, verbose)
+        'manual': lambda: _manual(X, thresholds, verbose),
+        'gmm_ch': lambda: _gmm_ch(X, n_init, min_int, prob_thresh, verbose),
+        'premessa': lambda: _premessa(X, verbose),
+        'cgmm_ch': lambda: _cgmm_ch(X, n_init, min_int, verbose),
+        'gmm_b': lambda: _gmm_b(X, n_init, verbose),
     }
     
     if method == 'manual' and thresholds is None:
@@ -357,12 +389,7 @@ def debarcode(adata: ad.AnnData,
     if method not in methods:
         raise ValueError(f"Unknown method: {method}. Valid options: {list(methods.keys())}")
     
-    result = methods[method]()
-    if method == 'auto':
-        barcodes, confidences, channel_params, auto_method_used = result
-    else:
-        (barcodes, confidences, channel_params), _ = result
-        auto_method_used = None
+    barcodes, confidences, channel_params = methods[method]()
     
     pattern_strings = [''.join(map(str, b)) for b in barcodes]
     adata.obs[f'{final_method_name}_assignment'] = pattern_strings
@@ -372,33 +399,27 @@ def debarcode(adata: ad.AnnData,
         adata.uns['debarcoding'] = {}
     
     for channel_idx, params in channel_params.items():
-        if params and channel_idx != 'method':
+        if params and channel_idx != 'method' and channel_idx != 'blocks':
             try:
                 idx = int(channel_idx)
                 if idx < len(barcode_channels):
                     params['channel'] = barcode_channels[idx]
             except (ValueError, TypeError):
-                pass  # Skip non-numeric keys
-            
+                pass
 
-    
     metadata = {
         'method': method,
         'layer': layer,
-        'n_init': n_init if method in ['gmm', 'pc_gmm', 'auto'] else None,
-        'min_int': min_int if method in ['gmm', 'pc_gmm', 'auto'] else None,
-        'prob_thresh': prob_thresh if method == 'gmm' else None,
-        'mean_conf_switch': mean_conf_switch if method == 'auto' else None,
-        'thresholds': thresholds if method == 'manual' else ([channel_params[str(g)]['threshold'] if channel_params.get(str(g)) else None for g in range(len(barcode_channels))] if method == 'gmm' else None),
+        'n_init': n_init if method in ['gmm_ch', 'cgmm_ch', 'gmm_b'] else None,
+        'min_int': min_int if method in ['gmm_ch', 'cgmm_ch'] else None,
+        'prob_thresh': prob_thresh if method == 'gmm_ch' else None,
+        'thresholds': thresholds if method == 'manual' else ([channel_params[str(g)]['threshold'] if channel_params.get(str(g)) else None for g in range(len(barcode_channels))] if method == 'gmm_ch' else None),
         'n_cells': len(adata),
         'n_channels': len(barcode_channels),
         'barcode_channels': barcode_channels,
         'mean_confidence': float(confidences.mean()),
         'channel_params': channel_params
     }
-    
-    if auto_method_used:
-        metadata['auto_method_used'] = auto_method_used
     
     adata.uns['debarcoding'][final_method_name] = metadata
     
@@ -412,13 +433,12 @@ def debarcode(adata: ad.AnnData,
 
 
 def debarcoding_pipeline(adata: ad.AnnData,
-                        method: str = 'auto',
+                        method: str = 'cgmm_ch',
                         transform_method: str = 'log',
                         cofactor: float = 5.0,
                         n_init: int = 5,
                         min_int: float = 0.1,
                         prob_thresh: float = 0.5,
-                        mean_conf_switch: float = 0.5,
                         thresholds: Optional[List[float]] = None,
                         # Intensity filtering
                         apply_intensity_filter: bool = True,
@@ -453,78 +473,78 @@ def debarcoding_pipeline(adata: ad.AnnData,
     ----------
     adata : AnnData
         Annotated data object with mapped barcode channels.
-    method : str
-        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'scoring', 'auto', 'manual'. Default: 'auto'.
-    transform_method : str
-        Transformation: 'log' or 'arcsinh'. Default: 'log'.
-    cofactor : float
-        Cofactor for arcsinh transformation. Default: 5.0.
-    n_init : int
-        GMM initializations for gmm/pc_gmm/auto. Default: 5.
-    min_int : float
-        Minimum intensity for GMM fitting. Default: 0.1.
-    prob_thresh : float
-        GMM probability threshold for 'gmm' method. Default: 0.5.
-    mean_conf_switch : float
-        Auto method switch threshold. Default: 0.5.
+    method : str, default 'cgmm_ch'
+        Debarcoding method: 'gmm_ch', 'premessa', 'cgmm_ch', 'gmm_b', 'manual'.
+    transform_method : str, default 'log'
+        Transformation: 'log' or 'arcsinh'.
+    cofactor : float, default 5.0
+        Cofactor for arcsinh transformation.
+    n_init : int, default 5
+        GMM initializations for gmm_ch/cgmm_ch/gmm_b.
+    min_int : float, default 0.1
+        Minimum intensity for GMM fitting.
+    prob_thresh : float, default 0.5
+        GMM probability threshold for 'gmm_ch' method.
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
-    
-    apply_intensity_filter : bool
-        Apply intensity filtering before debarcoding. Default: False.
-    intensity_method : str
-        Intensity filter method: 'rectangular' or 'ellipsoidal'. Default: 'rectangular'.
-    intensity_percentile : float
-        For 'ellipsoidal': percentile threshold. Default: 99.0.
-    intensity_sum_low : float, optional
-        For 'rectangular': lower percentile for channel sum. Default: 1.0.
-    intensity_sum_high : float, optional
-        For 'rectangular': upper percentile for channel sum. Default: 99.0.
-    intensity_var_low : float, optional
-        For 'rectangular': lower percentile for channel variance. Default: 1.0.
-    intensity_var_high : float, optional
-        For 'rectangular': upper percentile for channel variance. Default: 99.0.
-    intensity_filter_or_flag : str
-        'filter' to remove cells or 'flag' to mark. Default: 'filter'.
-    
-    apply_hamming : bool
-        Apply Hamming clustering. Default: True.
-    hamming_method : str
-        Hamming method: 'msg' or 'sphere'. Default: 'msg'.
-    hamming_radius : int
-        Max Hamming distance for neighbor search. Default: 2.
-    hamming_ratio : float
-        Minimum ratio for remapping valid patterns. Default: 15.0.
-    hamming_ratio_metric : str
-        Ratio metric: 'count' or 'score'. Default: 'count'.
-    hamming_tie_break : str
-        Tie-break method: 'no_remap', 'count', or 'lda'. Default: 'lda'.
-    hamming_test_conf : bool
-        Only remap to higher confidence neighbors. Default: True.
+    apply_intensity_filter : bool, default False
+        Apply intensity filtering before debarcoding.
+    intensity_method : str, default 'rectangular'
+        Intensity filter method: 'rectangular' or 'ellipsoidal'.
+    intensity_percentile : float, default 99.0
+        For 'ellipsoidal': percentile threshold.
+    intensity_sum_low : float, optional, default 1.0
+        For 'rectangular': lower percentile for channel sum.
+    intensity_sum_high : float, optional, default 99.0
+        For 'rectangular': upper percentile for channel sum.
+    intensity_var_low : float, optional, default 1.0
+        For 'rectangular': lower percentile for channel variance.
+    intensity_var_high : float, optional, default 99.0
+        For 'rectangular': upper percentile for channel variance.
+    intensity_filter_or_flag : str, default 'filter'
+        'filter' to remove cells or 'flag' to mark.
+    apply_hamming : bool, default True
+        Apply Hamming clustering.
+    hamming_method : str, default 'msg'
+        Hamming method: 'msg' or 'sphere'.
+    hamming_radius : int, default 2
+        Max Hamming distance for neighbor search.
+    hamming_ratio : float, default 15.0
+        Minimum ratio for remapping valid patterns.
+    hamming_ratio_metric : str, default 'count'
+        Ratio metric: 'count' or 'score'.
+    hamming_tie_break : str, default 'lda'
+        Tie-break method: 'no_remap', 'count', or 'lda'.
+    hamming_test_conf : bool, default True
+        Only remap to higher confidence neighbors.
     hamming_low_conf_perc : float, optional
         Only remap bottom N% confidence cells. Default: None (all).
-    
-    apply_pattern_filter : bool
-        Apply pattern-based filtering after hamming. Default: True.
-    pattern_filter_metric : str
-        Pattern metric: 'count', 'median_conf', or 'score'. Default: 'median_conf'.
-    pattern_filter_method : str
-        Filter method: 'threshold' or 'percentile'. Default: 'percentile'.
-    pattern_filter_value : float
-        Threshold or percentile value. Default: 90.
-    pattern_filter_exclude_remapped : bool
-        Exclude remapped cells from metric calculation. Default: True.
-    pattern_filter_or_flag : str
-        'flag' to mark or 'filter' to remove cells. Default: 'flag'.
-    
-    inplace : bool
-        Modify adata in place. Default: True.
-    verbose : bool
-        Print progress messages. Default: True.
+    apply_pattern_filter : bool, default True
+        Apply pattern-based filtering after hamming.
+    pattern_filter_metric : str, default 'median_conf'
+        Pattern metric: 'count', 'median_conf', or 'score'.
+    pattern_filter_method : str, default 'percentile'
+        Filter method: 'threshold' or 'percentile'.
+    pattern_filter_value : float, default 90
+        Threshold or percentile value.
+    pattern_filter_exclude_remapped : bool, default True
+        Exclude remapped cells from metric calculation.
+    pattern_filter_or_flag : str, default 'flag'
+        'flag' to mark or 'filter' to remove cells.
+    inplace : bool, default True
+        Modify adata in place.
+    verbose : bool, default True
+        Print progress messages.
     
     Returns
     -------
-    AnnData with debarcoding results.
+    AnnData
+        AnnData with debarcoding results.
+    
+    Examples
+    --------
+    >>> adata = debarcoding_pipeline(adata, method='cgmm_ch')
+    >>> adata = debarcoding_pipeline(adata, method='gmm_b', apply_hamming=True)
     """
     from .io import get_barcode_channels
     barcode_channels = get_barcode_channels(adata)
@@ -571,7 +591,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
     if verbose:
         print(f"\nStep {step}: Debarcoding")
     adata = debarcode(adata, method=method, layer=layer_name, n_init=n_init,
-                      min_int=min_int, prob_thresh=prob_thresh, mean_conf_switch=mean_conf_switch,
+                      min_int=min_int, prob_thresh=prob_thresh,
                       thresholds=thresholds, verbose=verbose)
     step += 1
     
