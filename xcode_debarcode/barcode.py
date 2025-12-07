@@ -4,7 +4,7 @@ import anndata as ad
 from typing import Optional, List, Union, Tuple 
 from itertools import combinations
 
-__all__ = ["is_valid_pattern", "pattern_to_indices", 
+__all__ = ["is_valid_pattern", "add_barcode_validity", "pattern_to_indices", 
            "indices_to_pattern", "hamming_distance", "get_pattern_statistics"]
 
 
@@ -44,17 +44,30 @@ def _generate_4_of_9_patterns(n_blocks: int = 1) -> np.ndarray:
 
 
 def is_valid_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> bool:
-    """Check if pattern is valid (4-4-...-4).
+    """Check if a barcode pattern is valid (4-of-9 in each block).
     
-    Parameters:
-    -----------
-    pattern : str, list, tuple, or array
-        Binary pattern to check
+    Parameters
+    ----------
+    pattern : str, list, tuple, or ndarray
+        Binary pattern to check. Can be a string of 0s and 1s, a list/tuple
+        of integers, or a numpy array.
     
-    Returns:
+    Returns
+    -------
+    bool
+        True if pattern is valid (all blocks sum to 4).
+    
+    Raises
+    ------
+    ValueError
+        If pattern length is not a multiple of 9.
+    
+    Examples
     --------
-    is_valid : bool
-        True if pattern is valid (all blocks sum to 4)
+    >>> is_valid_pattern("111100000111100000")
+    True
+    >>> is_valid_pattern([1,1,1,1,0,0,0,0,0])
+    True
     """
     if isinstance(pattern, str):
         pattern = [int(c) for c in pattern]
@@ -63,7 +76,6 @@ def is_valid_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> 
     elif isinstance(pattern, np.ndarray):
         pattern = pattern.tolist()
 
-    
     # Check if length is multiple of 9
     if len(pattern) % 9 != 0:
         raise ValueError(f"Pattern length {len(pattern)} is not a multiple of 9")
@@ -77,9 +89,6 @@ def is_valid_pattern(pattern: Union[str, List[int], Tuple[int], np.ndarray]) -> 
         group_sum = sum(pattern[start:end])
         group_sums.append(group_sum)
     
-    total = sum(group_sums)
-    expected_total = 4 * n_groups
-    
     # All groups must sum to 4 for valid barcode
     return all(s == 4 for s in group_sums)
 
@@ -90,22 +99,22 @@ def add_barcode_validity(adata: ad.AnnData,
                         inplace: bool = True) -> ad.AnnData:
     """Add boolean barcode validity column to adata.obs.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object with debarcoding results
+        Annotated data object with debarcoding results.
     assignment_col : str
-        Column name in adata.obs containing barcode patterns
+        Column name in adata.obs containing barcode patterns.
     validity_col : str, optional
-        Name for the new validity column. If None, auto-generates:
-        '{assignment_col}_validity'
-    inplace : bool
-        Modify adata in place (default: True)
+        Name for the new validity column. If None, auto-generates as
+        ``'{assignment_col}_validity'``.
+    inplace : bool, default True
+        Modify adata in place.
     
-    Returns:
-    --------
-    adata : AnnData
-        Modified AnnData with new column in adata.obs
+    Returns
+    -------
+    AnnData
+        Modified AnnData with new validity column in adata.obs.
     """
     if not inplace:
         adata = adata.copy()
@@ -125,18 +134,24 @@ def pattern_to_indices(pattern: Union[str, List[int], Tuple[int], np.ndarray],
                       one_based: bool = True) -> List[int]:
     """Convert binary pattern to list of indices where value is 1.
     
-    Parameters:
-    -----------
-    pattern : str, list, tuple, or array
-        Binary pattern
-    one_based : bool
-        Return 1-based indices (default: True)
-        If False, returns 0-based indices
+    Parameters
+    ----------
+    pattern : str, list, tuple, or ndarray
+        Binary pattern.
+    one_based : bool, default True
+        Return 1-based indices. If False, returns 0-based indices.
     
-    Returns:
+    Returns
+    -------
+    list of int
+        Indices where pattern is 1.
+    
+    Examples
     --------
-    indices : list of int
-        Indices where pattern is 1
+    >>> pattern_to_indices("110010000")
+    [1, 2, 4]
+    >>> pattern_to_indices("110010000", one_based=False)
+    [0, 1, 3]
     """
     if isinstance(pattern, str):
         pattern = [int(c) for c in pattern]
@@ -150,20 +165,29 @@ def indices_to_pattern(indices: List[int],
                       one_based: bool = True) -> np.ndarray:
     """Convert list of indices to binary pattern.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     indices : list of int
-        Indices where pattern should be 1
-    n_channels : int
-        Total number of channels (default: 27)
-    one_based : bool
-        Indices are 1-based (default: True)
-        If False, assumes 0-based indices
+        Indices where pattern should be 1.
+    n_channels : int, default 27
+        Total number of channels.
+    one_based : bool, default True
+        Indices are 1-based. If False, assumes 0-based indices.
     
-    Returns:
+    Returns
+    -------
+    ndarray
+        Binary pattern array.
+    
+    Raises
+    ------
+    ValueError
+        If any index is out of range.
+    
+    Examples
     --------
-    pattern : np.ndarray
-        Binary pattern array
+    >>> indices_to_pattern([1, 2, 4, 5], n_channels=9)
+    array([1, 1, 0, 1, 1, 0, 0, 0, 0])
     """
     pattern = np.zeros(n_channels, dtype=int)
     
@@ -184,15 +208,27 @@ def hamming_distance(pattern1: Union[str, List, np.ndarray],
                     pattern2: Union[str, List, np.ndarray]) -> int:
     """Compute Hamming distance between two patterns.
     
-    Parameters:
-    -----------
-    pattern1, pattern2 : str, list, or array
-        Binary patterns to compare
+    Parameters
+    ----------
+    pattern1 : str, list, or ndarray
+        First binary pattern.
+    pattern2 : str, list, or ndarray
+        Second binary pattern.
     
-    Returns:
+    Returns
+    -------
+    int
+        Number of positions where patterns differ.
+    
+    Raises
+    ------
+    ValueError
+        If patterns have different lengths.
+    
+    Examples
     --------
-    distance : int
-        Number of positions where patterns differ
+    >>> hamming_distance("111100000", "111010000")
+    2
     """
     if isinstance(pattern1, str):
         pattern1 = [int(c) for c in pattern1]
@@ -216,26 +252,32 @@ def get_pattern_statistics(adata: ad.AnnData,
     Analyzes the distribution and validity of barcode patterns from
     debarcoding results. 
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object with debarcoding results
+        Annotated data object with debarcoding results.
     assignment_col : str
         Column name in adata.obs containing barcode patterns
-        (e.g., 'pc_gmm_assignment', 'premessa_assignment')
-    verbose : bool
-        Print summary statistics (default: True)
+        (e.g., 'pc_gmm_assignment', 'premessa_assignment').
+    verbose : bool, default True
+        Print summary statistics.
     
-    Returns:
-    --------
-    stats : dict
+    Returns
+    -------
+    dict
         Dictionary with pattern statistics:
-        - n_cells: total number of cells
-        - n_unique_patterns: number of unique patterns
-        - n_valid: number of cells with valid patterns
-        - n_invalid: number of cells with invalid patterns
-        - pct_valid: percentage of cells with valid patterns
-        - most_common: list of (pattern, count) tuples for top 10
+        
+        - n_cells : total number of cells
+        - n_unique_patterns : number of unique patterns
+        - n_valid : number of cells with valid patterns
+        - n_invalid : number of cells with invalid patterns
+        - pct_valid : percentage of cells with valid patterns
+        - most_common : list of (pattern, count) tuples for top 10
+    
+    Raises
+    ------
+    ValueError
+        If assignment_col not found in adata.obs.
     """
     if assignment_col not in adata.obs.columns:
         raise ValueError(f"Column '{assignment_col}' not found in adata.obs")
