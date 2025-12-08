@@ -163,35 +163,62 @@ def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: floa
     return barcodes, confidences, channel_params
 
 
-def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """PreMessa: Top-4 selection method."""
+def _premessa_core(X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    """Core PreMessa: vectorized top-4 selection per block."""
     n_cells, n_channels = X.shape
     n_blocks = n_channels // 9
     
-    if verbose:
-        print(f"PreMessa: Processing {n_channels} channels, {n_cells} cells")
-    
     barcodes = np.zeros((n_cells, n_channels), dtype=int)
-    confidences = np.ones(n_cells)
+    block_deltas = np.zeros((n_cells, n_blocks))
+    row_idx = np.arange(n_cells)
     
     for b in range(n_blocks):
-        start, end = b * 9, (b + 1) * 9
-        X_block = X[:, start:end]
+        start = b * 9
+        X_block = X[:, start:start + 9]
         
-        for i in range(n_cells):
-            intensities = X_block[i, :]
-            top4_indices = np.argsort(intensities)[-4:]
-            barcodes[i, start + top4_indices] = 1
-            
-            sorted_int = np.sort(intensities)
-            if len(sorted_int) >= 5:
-                separation = sorted_int[-4] - sorted_int[-5]
-                confidences[i] *= min(1.0, separation / 2.0)
+        sorted_vals = np.sort(X_block, axis=1)
+        block_deltas[:, b] = sorted_vals[:, -4] - sorted_vals[:, -5]
+        
+        top4 = np.argpartition(X_block, -4, axis=1)[:, -4:]
+        for j in range(4):
+            barcodes[row_idx, start + top4[:, j]] = 1
+    
+    deltas = block_deltas.min(axis=1)
+    return barcodes, deltas
+
+
+def _premessa(X: np.ndarray, n_iter: int = 2, min_cells: int = 10, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """PreMessa: Top-4 selection with iterative per-channel normalization.
+    
+    Performs iterative refinement by normalizing each channel based on cells
+    classified as ON, then re-running top-4 selection. This corrects for
+    systematic intensity differences between channels.
+    
+    The returned delta (confidence) is the minimum separation (4th - 5th highest)
+    across blocks. Use threshold-based filtering on deltas for quality control.
+    """
+    n_cells, n_channels = X.shape
     
     if verbose:
-        print(f"PreMessa: Complete. Mean confidence: {confidences.mean():.4f}")
+        print(f"PreMessa: Processing {n_channels} channels, {n_cells} cells (n_iter={n_iter})")
     
-    return barcodes, confidences, {'method': 'premessa'}
+    X_norm = X.copy()
+    
+    for iteration in range(n_iter + 1):
+        barcodes, deltas = _premessa_core(X_norm)
+        
+        if iteration < n_iter:
+            for ch in range(n_channels):
+                on_mask = barcodes[:, ch] == 1
+                if on_mask.sum() >= min_cells:
+                    norm_factor = np.percentile(X_norm[on_mask, ch], 95)
+                    if norm_factor > 0:
+                        X_norm[:, ch] /= norm_factor
+    
+    if verbose:
+        print(f"PreMessa: Complete. Mean separation: {deltas.mean():.4f}")
+    
+    return barcodes, deltas, {'method': 'premessa', 'n_iter': n_iter}
 
 
 def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
@@ -223,6 +250,7 @@ def debarcode(adata: ad.AnnData,
              n_init: int = 5,
              min_int: float = 0.1,
              prob_thresh: float = 0.5,
+             n_iter: int = 2,
              thresholds: Optional[List[float]] = None,
              method_name: Optional[str] = None,
              inplace: bool = True,
@@ -237,7 +265,7 @@ def debarcode(adata: ad.AnnData,
         Debarcoding method:
         
         - 'gmm': Gaussian Mixture Model per channel
-        - 'premessa': Top-4 selection per block
+        - 'premessa': Iterative top-4 selection per block
         - 'pc_gmm': Pattern-Constrained GMM
         - 'manual': Fixed thresholds
     layer : str, optional
@@ -248,6 +276,8 @@ def debarcode(adata: ad.AnnData,
         Minimum intensity for GMM fitting.
     prob_thresh : float, default 0.5
         GMM probability threshold (for 'gmm' method).
+    n_iter : int, default 2
+        Normalization iterations (for 'premessa' method).
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
     method_name : str, optional
@@ -270,6 +300,7 @@ def debarcode(adata: ad.AnnData,
     Examples
     --------
     >>> adata = debarcode(adata, method='pc_gmm', layer='log')
+    >>> adata = debarcode(adata, method='premessa', layer='arcsinh_cf10.0')
     >>> adata = debarcode(adata, method='manual', thresholds=[1.5]*27)
     """
     from .io import get_barcode_channels
@@ -291,8 +322,8 @@ def debarcode(adata: ad.AnnData,
         elif method == 'premessa':
             warnings.warn(
                 f"Using method 'premessa' without a transformed layer. "
-                f"Recommend: preprocessing.transform(adata, method='arcsinh', cofactor=5) "
-                f"and pass layer='arcsinh_cf5'.",
+                f"Recommend: preprocessing.transform(adata, method='arcsinh', cofactor=10.0) "
+                f"and pass layer='arcsinh_cf10.0'.",
                 UserWarning
             )
     
@@ -302,7 +333,7 @@ def debarcode(adata: ad.AnnData,
     methods = {
         'manual': lambda: (_manual(X, thresholds, verbose), None),
         'gmm': lambda: (_gmm(X, n_init, min_int, prob_thresh, verbose), None),
-        'premessa': lambda: (_premessa(X, verbose), None),
+        'premessa': lambda: (_premessa(X, n_iter, verbose=verbose), None),
         'pc_gmm': lambda: (_pc_gmm(X, n_init, min_int, verbose), None),
     }
     
@@ -329,8 +360,7 @@ def debarcode(adata: ad.AnnData,
                 if idx < len(barcode_channels):
                     params['channel'] = barcode_channels[idx]
             except (ValueError, TypeError):
-                pass  # Skip non-numeric keys
-            
+                pass
 
     
     metadata = {
@@ -339,6 +369,7 @@ def debarcode(adata: ad.AnnData,
         'n_init': n_init if method in ['gmm', 'pc_gmm'] else None,
         'min_int': min_int if method in ['gmm', 'pc_gmm'] else None,
         'prob_thresh': prob_thresh if method == 'gmm' else None,
+        'n_iter': n_iter if method == 'premessa' else None,
         'thresholds': thresholds if method == 'manual' else ([channel_params[str(g)]['threshold'] if channel_params.get(str(g)) else None for g in range(len(barcode_channels))] if method == 'gmm' else None),
         'n_cells': len(adata),
         'n_channels': len(barcode_channels),
@@ -361,10 +392,11 @@ def debarcode(adata: ad.AnnData,
 def debarcoding_pipeline(adata: ad.AnnData,
                         method: str = 'pc_gmm',
                         transform_method: str = 'log',
-                        cofactor: float = 5.0,
+                        cofactor: float = 10.0,
                         n_init: int = 5,
                         min_int: float = 0.1,
                         prob_thresh: float = 0.5,
+                        n_iter: int = 2,
                         thresholds: Optional[List[float]] = None,
                         # Intensity filtering
                         apply_intensity_filter: bool = True,
@@ -403,7 +435,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
         Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'manual'.
     transform_method : str, default 'log'
         Transformation: 'log' or 'arcsinh'.
-    cofactor : float, default 5.0
+    cofactor : float, default 10.0
         Cofactor for arcsinh transformation.
     n_init : int, default 5
         GMM initializations for gmm/pc_gmm.
@@ -411,6 +443,8 @@ def debarcoding_pipeline(adata: ad.AnnData,
         Minimum intensity for GMM fitting.
     prob_thresh : float, default 0.5
         GMM probability threshold for 'gmm' method.
+    n_iter : int, default 2
+        Normalization iterations for 'premessa' method.
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
     apply_intensity_filter : bool, default False
@@ -517,7 +551,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
     if verbose:
         print(f"\nStep {step}: Debarcoding")
     adata = debarcode(adata, method=method, layer=layer_name, n_init=n_init,
-                      min_int=min_int, prob_thresh=prob_thresh,
+                      min_int=min_int, prob_thresh=prob_thresh, n_iter=n_iter,
                       thresholds=thresholds, verbose=verbose)
     step += 1
     

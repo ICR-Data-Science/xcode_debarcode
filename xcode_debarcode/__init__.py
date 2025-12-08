@@ -25,7 +25,7 @@ Methods Overview
 GMM (Gaussian Mixture Model)
     Channel-level 2-component GMM with independent per-channel classification.
 PreMessa
-    Top-4 channel selection per barcode block with separation-based confidence.
+    Iterative top-4 channel selection with per-channel normalization.
 PC-GMM (Pattern-Constrained GMM)
     Channel-level GMMs with valid pattern constraints and maximum likelihood selection.
 Manual

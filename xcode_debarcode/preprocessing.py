@@ -8,7 +8,7 @@ __all__ = ["transform", "filter_cells_intensity"]
 
 def transform(adata: ad.AnnData,
              method: str = 'log',
-             cofactor: float = 5.0,
+             cofactor: float = 10.0,
              layer_name: Optional[str] = None,
              inplace: bool = True,
              verbose: bool = True) -> ad.AnnData:
@@ -27,7 +27,7 @@ def transform(adata: ad.AnnData,
         - 'arcsinh': inverse hyperbolic sine, arcsinh(x/cofactor)
         - 'log': natural logarithm, log(x + 1)
     cofactor : float
-        Cofactor for arcsinh transformation (default: 5.0)
+        Cofactor for arcsinh transformation (default: 10.0)
     layer_name : str, optional
         Name for the transformed layer. If None, auto-generates:
         - 'arcsinh_cf{cofactor}' for arcsinh
