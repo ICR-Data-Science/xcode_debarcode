@@ -644,7 +644,7 @@ def hamming_cluster(adata: ad.AnnData,
                     confidence_col: str,
                     method: str = 'msg',
                     radius: int = 2,
-                    ratio: Optional[float] = None,
+                    ratio: float = 15.0,
                     ratio_metric: str = 'count',
                     tie_break: str = 'lda',
                     test_conf: bool = True,
@@ -656,10 +656,25 @@ def hamming_cluster(adata: ad.AnnData,
                     verbose: bool = True) -> ad.AnnData:
     """Apply Hamming clustering to correct barcode assignments.
     
-    Merges small/low-confidence patterns into larger neighbors using either
-    a message-passing or sphere clustering algorithm. Handles both valid 
-    patterns (4-of-9 in each block) and invalid patterns (which are remapped 
-    unconditionally to nearest valid neighbor within radius).
+    Iteratively merges small/low-confidence patterns into larger neighbors.
+    Handles both valid patterns (4-of-9 in each block) and invalid patterns
+    (which are remapped unconditionally to nearest valid neighbor within radius).
+    
+    Recommended settings
+    --------------------
+    18-channel (2 blocks):
+        Default settings work well: method='msg', ratio=15, tie_break='lda', test_conf=True
+    
+    27-channel (3 blocks):
+        Lower ratio recommended due to sparser barcode space: ratio=5
+    
+    Small K (few barcodes):
+        Consider lowering ratio (e.g., 5-10) as patterns are more isolated.
+    
+    When to use 'sphere':
+        For more local control. Set min_count_center to a threshold above which 
+        patterns are likely real barcodes. Adjust radius based on expected Hamming 
+        distance between true barcodes (typically 2-4).
     
     Parameters
     ----------
@@ -668,88 +683,48 @@ def hamming_cluster(adata: ad.AnnData,
     assignment_col : str
         Column in adata.obs with barcode assignments.
     confidence_col : str
-        Column in adata.obs with confidence scores.
-    method : {'msg', 'sphere'}, default 'msg'
-        Clustering method:
-        
-        - 'msg': Message passing. Iteratively merges small patterns into
-          larger neighbors, following merge chains to final centers.
-        - 'sphere': Local maxima centers. Identifies high-count patterns
-          as centers, then assigns neighbors directly.
-    radius : int, default 2
-        Maximum Hamming distance for neighbor search.
-    ratio : float, optional
-        Minimum count ratio for remapping valid patterns.
-        If None, auto-detects based on number of channels: ratio=20 for 18ch,
-        ratio=5 for 27ch. Can lower for more aggressive correction when 
-        sublibrary size is small.
-    ratio_metric : {'count', 'score'}, default 'count'
-        Metric for ratio test:
-        
-        - 'count': N_neighbor >= ratio × N_pattern
-        - 'score': (count × median_conf)_neighbor >= ratio × (count × median_conf)_pattern
-    tie_break : {'lda', 'count', 'no_remap'}, default 'lda'
-        Method for resolving equidistant neighbors:
-        
-        - 'lda': Use Linear Discriminant Analysis on intensity data
-        - 'count': Choose neighbor with highest count
-        - 'no_remap': Skip remapping when ties occur
-    test_conf : bool, default True
-        Only remap valid patterns to neighbors with higher median confidence.
-    low_conf_perc : float, optional
-        Only remap cells in the bottom N% of confidence. Default None (all cells).
-    min_count_center : int, default 1
-        Minimum cell count for a pattern to be a center (sphere method only).
-    layer : str, default 'log'
-        Data layer to use for LDA tie-breaking.
-    save_results : bool, default True
-        Save clustering metadata to adata.uns.
-    inplace : bool, default True
-        If True, modify adata in place. Otherwise, return a copy.
-    verbose : bool, default True
-        Print progress messages.
+        Column in adata.obs with confidence scores (used for ratio_metric='score' 
+        and test_conf).
+    method : str
+        'msg' (message passing) or 'sphere' (local maxima). Default: 'msg'.
+    radius : int
+        Max Hamming distance for neighbor search. Default: 2.
+    ratio : float
+        Minimum ratio for remapping valid patterns. Default: 15.0.
+        Use ~15 for 18ch, ~5 for 27ch or small K.
+    ratio_metric : str
+        'count' (N_q >= ratio * N_p) or 'score' (count*conf_q >= ratio * count*conf_p). 
+        Default: 'count'.
+    tie_break : str
+        'no_remap', 'count', or 'lda'. Default: 'lda'.
+    test_conf : bool
+        Only remap valid patterns to higher confidence neighbors. Default: True.
+    low_conf_perc : float or None
+        Only remap bottom N% confidence cells. Default: None (all).
+    min_count_center : int
+        Min count for centers (sphere only). Default: 1.
+    layer : str
+        Data layer for LDA. Default: 'log'.
+    save_results : bool
+        Save metadata to adata.uns. Default: True.
+    inplace : bool
+        Modify in place. Default: True.
+    verbose : bool
+        Print progress. Default: True.
     
     Returns
     -------
-    AnnData
-        AnnData with columns added:
-        
-        - ``{base}_hamming_assignment``: Corrected barcode assignments
-        - ``{base}_hamming_remapped``: Boolean mask indicating remapped cells
-        
-        where ``base`` is derived from assignment_col (e.g., 'x_em').
-        Metadata stored in ``adata.uns['hamming_clustering'][assignment_col]``.
+    AnnData with columns added:
+        - `{base}_hamming_assignment`: corrected assignments
+        - `{base}_hamming_remapped`: boolean mask of remapped cells
+    where `base` is `assignment_col` with trailing suffix (e.g. '_assignment') stripped.
     
     Notes
     -----
-    **Recommended settings** (S = sublibrary size, number of true barcodes):
-    
-    - 18-channel (2 blocks):
-        - Default: ratio=20 (safe)
-        - S ≤ 100: can lower to ratio=5-10 for more aggressive correction
-        - S ≥ 3000: marginal benefit, consider skipping Hamming clustering
-    - 27-channel (3 blocks):
-        - Default: ratio=5 (safe)
-        - S ≤ 3000: can lower to ratio=2 for maximum correction
-        - S > 3000: keep ratio=5
-    
     Invalid patterns (not 4-of-9 per block) are always remapped to the nearest
-    valid neighbor within radius without ratio/confidence tests.
-    
-    Examples
-    --------
-    >>> # 18-channel with default safe ratio
-    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence', ratio=20)
-    
-    >>> # 27-channel data with lower ratio
-    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence', ratio=5)
-    
-    >>> # Small sublibrary (S ≤ 100), aggressive correction
-    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence', ratio=2)
-    
-    >>> # Sphere method with minimum center count
-    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence',
-    ...                         method='sphere', min_count_center=100)
+    valid neighbor within radius without ratio/confidence tests. Valid patterns 
+    are remapped only to even-distance valid neighbors that pass ratio and 
+    confidence tests.
     """
     if method not in {"msg", "sphere"}:
         raise ValueError(f"method must be 'msg' or 'sphere', got {method!r}")
@@ -760,18 +735,6 @@ def hamming_cluster(adata: ad.AnnData,
     
     if not inplace:
         adata = adata.copy()
-    
-    # Auto-detect ratio based on number of barcode channels if not provided
-    if ratio is None:
-        from .io import get_barcode_channels
-        barcode_channels = get_barcode_channels(adata)
-        n_barcode_channels = len(barcode_channels)
-        if n_barcode_channels <= 18:
-            ratio = 20.0
-        else:
-            ratio = 5.0
-        if verbose:
-            print(f"Auto-detected ratio={ratio} for {n_barcode_channels} barcode channels")
     
     base_name = assignment_col.rsplit('_', 1)[0] if '_' in assignment_col else assignment_col
     patterns_str = adata.obs[assignment_col].values.astype(str)
@@ -862,7 +825,7 @@ def hamming_cluster(adata: ad.AnnData,
         print(f"      - adata.obs['{base_name}_hamming_remapped']")
     
     return adata
-    
+
 
 def mahalanobis_filter(adata: ad.AnnData,
                       assignment_col: str,

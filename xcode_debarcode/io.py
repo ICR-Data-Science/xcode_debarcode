@@ -10,27 +10,15 @@ __all__ = ["read_data", "write_data", "map_channels", "get_barcode_channels"]
 def read_data(path: str) -> ad.AnnData:
     """Read data from FCS or H5AD file.
     
-    Parameters
-    ----------
+    Parameters:
+    -----------
     path : str
-        Path to the data file (.h5ad or .fcs).
+        Path to the data file (.h5ad or .fcs)
     
-    Returns
-    -------
-    AnnData
-        Loaded data as AnnData object.
-    
-    Raises
-    ------
-    ImportError
-        If readfcs is not installed when reading FCS files.
-    ValueError
-        If file format is not supported.
-    
-    Examples
+    Returns:
     --------
-    >>> adata = read_data("sample.h5ad")
-    >>> adata = read_data("sample.fcs")
+    adata : AnnData
+        Loaded data as AnnData object
     """
     path = Path(path)
     
@@ -55,25 +43,14 @@ def read_data(path: str) -> ad.AnnData:
 def write_data(adata: ad.AnnData, path: str, **kwargs):
     """Write data to FCS or H5AD file.
     
-    Parameters
-    ----------
+    Parameters:
+    -----------
     adata : AnnData
-        Annotated data object.
+        Annotated data object
     path : str
-        Output file path (.h5ad or .fcs).
+        Output file path (.h5ad or .fcs)
     **kwargs
-        Additional arguments passed to write function.
-    
-    Raises
-    ------
-    NotImplementedError
-        If attempting to write FCS format.
-    ValueError
-        If file format is not supported.
-    
-    Examples
-    --------
-    >>> write_data(adata, "output.h5ad")
+        Additional arguments passed to write function
     """
     path = Path(path)
     
@@ -95,6 +72,16 @@ def _load_mapping(path: str) -> pd.DataFrame:
     """Load channel mapping from CSV file.
     
     Expected columns: bc_sequence, channel_name
+    
+    Parameters:
+    -----------
+    path : str
+        Path to mapping CSV file
+    
+    Returns:
+    --------
+    mapping_df : DataFrame
+        Channel mapping dataframe
     """
     df = pd.read_csv(path)
     required = {"bc_sequence", "channel_name"}
@@ -111,37 +98,30 @@ def map_channels(adata: ad.AnnData,
     """Map and rename barcode channels, storing barcode channel list in adata.uns.
     
     Renames channels to s_1, s_2, ..., s_N and reorders them to the end.
-    The list of barcode channels is stored in ``adata.uns['barcode_channels']``.
+    The list of barcode channels is stored in adata.uns['barcode_channels'].
     
-    Parameters
-    ----------
+    Parameters:
+    -----------
     adata : AnnData
-        Annotated data object.
+        Annotated data object
     mapping : str, DataFrame, or dict
         Channel mapping specification:
-        
-        - str: path to CSV file with 'bc_sequence' and 'channel_name' columns
+        - str: path to CSV file
         - DataFrame: mapping dataframe with required columns
         - dict: {old_name: new_name} mapping
-    inplace : bool, default True
-        Modify adata in place.
-    verbose : bool, default True
-        Print progress messages.
+    inplace : bool
+        Modify adata in place (default: True)
+    verbose : bool
+        Print progress messages (default: True)
     
-    Returns
-    -------
-    AnnData
+    Returns:
+    --------
+    adata : AnnData
         Modified AnnData object with:
-        
         - Renamed barcode channels (s_1, s_2, ...)
         - Reordered channels (non-barcode first, then barcodes)
-        - ``adata.uns['barcode_channels']``: list of barcode channel names
-        - ``adata.uns['channel_mapping']``: mapping information
-    
-    Examples
-    --------
-    >>> adata = map_channels(adata, "barcode_mapping.csv")
-    >>> adata = map_channels(adata, {"Cd110": "s_1", "Cd111": "s_2"})
+        - adata.uns['barcode_channels']: list of barcode channel names
+        - adata.uns['channel_mapping']: mapping information
     """
     if not inplace:
         adata = adata.copy()
@@ -206,30 +186,25 @@ def map_channels(adata: ad.AnnData,
 def get_barcode_channels(adata: ad.AnnData) -> List[str]:
     """Get list of barcode channel names.
     
-    First checks ``adata.uns['barcode_channels']`` (set by map_channels).
+    First checks adata.uns['barcode_channels'] (set by map_channels).
     If not found, detects channels with s_* pattern.
     
-    Parameters
-    ----------
+    Parameters:
+    -----------
     adata : AnnData
-        Annotated data object.
+        Annotated data object
     
-    Returns
-    -------
-    list of str
-        List of barcode channel names.
-    
-    Raises
-    ------
-    ValueError
-        If no barcode channels are found.
-    
-    Examples
+    Returns:
     --------
-    >>> channels = get_barcode_channels(adata)
-    >>> print(channels)
-    ['s_1', 's_2', ..., 's_27']
+    channels : list
+        List of barcode channel names
+    
+    Raises:
+    -------
+    ValueError
+        If no barcode channels are found
     """
+
     if 'barcode_channels' in adata.uns:
         return adata.uns['barcode_channels']
     

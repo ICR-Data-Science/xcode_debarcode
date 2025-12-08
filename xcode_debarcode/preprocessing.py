@@ -16,41 +16,33 @@ def transform(adata: ad.AnnData,
     
     Creates a new layer in adata with transformed values. The transformation
     is applied to ALL channels (barcode and non-barcode), but the function
-    tracks which channels are barcode channels using ``adata.uns['barcode_channels']``.
+    tracks which channels are barcode channels using adata.uns['barcode_channels'].
     
-    Parameters
-    ----------
+    Parameters:
+    -----------
     adata : AnnData
-        Annotated data object (should have barcode channels mapped via map_channels).
-    method : {'arcsinh', 'log'}, default 'log'
-        Transformation method:
-        
+        Annotated data object (should have barcode channels mapped via map_channels)
+    method : str
+        Transformation method: 'arcsinh' or 'log' (default: 'arcsinh')
         - 'arcsinh': inverse hyperbolic sine, arcsinh(x/cofactor)
         - 'log': natural logarithm, log(x + 1)
-    cofactor : float, default 5.0
-        Cofactor for arcsinh transformation.
+    cofactor : float
+        Cofactor for arcsinh transformation (default: 5.0)
     layer_name : str, optional
         Name for the transformed layer. If None, auto-generates:
-        
         - 'arcsinh_cf{cofactor}' for arcsinh
         - 'log' for log
-    inplace : bool, default True
-        Modify adata in place.
-    verbose : bool, default True
-        Print progress messages.
+    inplace : bool
+        Modify adata in place (default: True)
+    verbose : bool
+        Print progress messages (default: True)
     
-    Returns
-    -------
-    AnnData
-        Modified AnnData with new layer containing transformed data:
-        
-        - ``adata.layers[layer_name]``: transformed data for all channels
-        - ``adata.uns['transformations'][layer_name]``: transformation metadata
-    
-    Examples
+    Returns:
     --------
-    >>> adata = transform(adata, method='log')
-    >>> adata = transform(adata, method='arcsinh', cofactor=5.0)
+    adata : AnnData
+        Modified AnnData with new layer containing transformed data
+        - adata.layers[layer_name]: transformed data for all channels
+        - adata.uns['transformations'][layer_name]: transformation metadata
     """
     if not inplace:
         adata = adata.copy()
@@ -113,7 +105,6 @@ def transform(adata: ad.AnnData,
     
     return adata
 
-
 def filter_cells_intensity(adata: ad.AnnData,
                            layer: Optional[str] = 'log',
                            method: str = 'rectangular',
@@ -135,41 +126,39 @@ def filter_cells_intensity(adata: ad.AnnData,
     ----------
     adata : AnnData
         Annotated data object with mapped barcode channels.
-    layer : str, optional, default 'log'
-        Data layer to use. None for adata.X.
-    method : {'rectangular', 'ellipsoidal'}, default 'rectangular'
-        Filtering method:
-        
+    layer : str, optional
+        Data layer to use. None for adata.X. Default: 'log'.
+    method : str
+        Filtering method: 'rectangular' or 'ellipsoidal'. Default: 'rectangular'.
         - 'rectangular': Independent percentile thresholds on sum and variance.
         - 'ellipsoidal': Mahalanobis distance with robust covariance estimation.
-    percentile : float, default 99.0
+    percentile : float
         For 'ellipsoidal' method, keep cells within this percentile of
-        Mahalanobis distance.
-    sum_low : float, optional, default 1.0
+        Mahalanobis distance. Default: 99.0.
+    sum_low : float, optional
         For 'rectangular': lower percentile bound for channel sum.
-        Cells below this percentile are removed. Set to None to disable.
-    sum_high : float, optional, default 99.0
+        Cells below this percentile are removed. Set to None to disable. Default: 1.0.
+    sum_high : float, optional
         For 'rectangular': upper percentile bound for channel sum.
-        Cells above this percentile are removed. Set to None to disable.
-    var_low : float, optional, default 1.0
+        Cells above this percentile are removed. Set to None to disable. Default: 99.0.
+    var_low : float, optional
         For 'rectangular': lower percentile bound for channel variance.
-        Cells below this percentile are removed. Set to None to disable.
-    var_high : float, optional, default 99.0
+        Cells below this percentile are removed. Set to None to disable. Default: 1.0.
+    var_high : float, optional
         For 'rectangular': upper percentile bound for channel variance.
-        Cells above this percentile are removed. Set to None to disable.
-    filter_or_flag : {'flag', 'filter'}, default 'flag'
-        'flag' to add boolean column, 'filter' to remove cells.
+        Cells above this percentile are removed. Set to None to disable. Default: 99.0.
+    filter_or_flag : str
+        'flag' to add boolean column, 'filter' to remove cells. Default: 'flag'.
     filter_name : str, optional
         Custom name for this filtering run. Default: auto-generated.
-    inplace : bool, default True
-        Modify adata in place.
-    verbose : bool, default True
-        Print progress.
+    inplace : bool
+        Modify adata in place. Default: True.
+    verbose : bool
+        Print progress. Default: True.
     
     Returns
     -------
-    AnnData
-        AnnData with filtering results.
+    AnnData with filtering results.
     
     Notes
     -----
@@ -181,11 +170,6 @@ def filter_cells_intensity(adata: ad.AnnData,
         - Uses Minimum Covariance Determinant for robust covariance estimation
         - Filters based on Mahalanobis distance in (sum, variance) space
         - Better handles correlated sum/variance and non-axis-aligned outliers
-    
-    Examples
-    --------
-    >>> adata = filter_cells_intensity(adata, method='rectangular')
-    >>> adata = filter_cells_intensity(adata, method='ellipsoidal', percentile=95)
     """
     if not inplace:
         adata = adata.copy()

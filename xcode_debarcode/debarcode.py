@@ -3,16 +3,11 @@ import numpy as np
 import anndata as ad
 import warnings
 from typing import Optional, List, Dict, Tuple
-from scipy.special import logsumexp
 from sklearn.mixture import GaussianMixture
 from .barcode import _generate_4_of_9_patterns
 
 __all__ = ["debarcode", "debarcoding_pipeline"]
 
-
-# =============================================================================
-# UTILITY FUNCTIONS
-# =============================================================================
 
 def _get_data_matrix(adata: ad.AnnData, barcode_channels: List[str], layer: Optional[str] = None) -> np.ndarray:
     """Extract data matrix from AnnData."""
@@ -36,111 +31,6 @@ def _get_unique_method_name(adata: ad.AnnData, method: str, custom_name: Optiona
         name = f'{method}_{counter}'
     return name
 
-
-# =============================================================================
-# X-EM: EXPECTATION-MAXIMIZATION FOR X-CODE
-# =============================================================================
-
-def _x_em_block(X_block: np.ndarray, valid_4of9: np.ndarray, 
-                max_iter: int = 100, tol: float = 1e-4) -> Tuple[np.ndarray, np.ndarray]:
-    """Run X-EM on a single 9-channel block.
-    
-    Constrained EM that enforces valid 4-of-9 patterns throughout optimization.
-    Uses PreMessa (top-4) initialization for robust warm start.
-    """
-    n_cells = X_block.shape[0]
-    
-    # PreMessa initialization: use top-4 channels to estimate ON/OFF means
-    is_on = np.zeros((n_cells, 9), dtype=bool)
-    for i in range(n_cells):
-        top4 = np.argsort(X_block[i])[-4:]
-        is_on[i, top4] = True
-    
-    on_vals = X_block[is_on]
-    off_vals = X_block[~is_on]
-    
-    mu_on = np.full(9, on_vals.mean())
-    mu_off = np.full(9, off_vals.mean())
-    var_on = np.var(X_block, axis=0) + 1e-6
-    var_off = np.var(X_block, axis=0) + 1e-6
-    pi = np.ones(126) / 126
-    
-    prev_ll = -np.inf
-    
-    for _ in range(max_iter):
-        # E-step: compute responsibilities (vectorized)
-        log_p_off = -0.5 * np.log(2 * np.pi * var_off) - 0.5 * (X_block - mu_off)**2 / var_off
-        log_p_on = -0.5 * np.log(2 * np.pi * var_on) - 0.5 * (X_block - mu_on)**2 / var_on
-        
-        # Pattern log-likelihoods: (n_cells, 126)
-        log_lik = log_p_on @ valid_4of9.T + log_p_off @ (1 - valid_4of9).T
-        log_lik += np.log(pi + 1e-300)
-        
-        log_norm = logsumexp(log_lik, axis=1, keepdims=True)
-        resp = np.exp(log_lik - log_norm)
-        
-        # M-step: update parameters
-        pi = np.maximum(resp.mean(axis=0), 1e-10)
-        pi /= pi.sum()
-        
-        # Weighted sums for ON/OFF positions
-        w_on = resp @ valid_4of9          # (n_cells, 9)
-        w_off = resp @ (1 - valid_4of9)   # (n_cells, 9)
-        W_on = w_on.sum(axis=0)
-        W_off = w_off.sum(axis=0)
-        
-        mu_on = (w_on * X_block).sum(axis=0) / (W_on + 1e-10)
-        mu_off = (w_off * X_block).sum(axis=0) / (W_off + 1e-10)
-        var_on = np.maximum((w_on * (X_block - mu_on)**2).sum(axis=0) / (W_on + 1e-10), 1e-6)
-        var_off = np.maximum((w_off * (X_block - mu_off)**2).sum(axis=0) / (W_off + 1e-10), 1e-6)
-        
-        # Check convergence
-        ll = log_norm.sum()
-        if abs(ll - prev_ll) < tol:
-            break
-        prev_ll = ll
-    
-    # Final assignment
-    pattern_idx = np.argmax(resp, axis=1)
-    conf = resp[np.arange(n_cells), pattern_idx]
-    
-    return pattern_idx, conf
-
-
-def _x_em(X: np.ndarray, max_iter: int = 100, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """X-EM: Expectation-Maximization for X-Code debarcoding.
-    
-    Constrained EM that models each cell as arising from one of 126 valid 4-of-9
-    patterns per block. Parameters (mu_on, mu_off, var_on, var_off) are shared
-    across patterns within each block, enforcing the X-Code structure throughout.
-    """
-    n_cells, n_channels = X.shape
-    n_blocks = n_channels // 9
-    valid_4of9 = _generate_4_of_9_patterns(n_blocks=1).astype(np.float64)
-    
-    if verbose:
-        print(f"X-EM: Processing {n_channels} channels, {n_cells} cells, {n_blocks} blocks")
-    
-    barcodes = np.zeros((n_cells, n_channels), dtype=np.int8)
-    confidences = np.ones(n_cells)
-    
-    for b in range(n_blocks):
-        start, end = b * 9, (b + 1) * 9
-        X_block = X[:, start:end]
-        
-        pattern_idx, conf = _x_em_block(X_block, valid_4of9, max_iter=max_iter)
-        barcodes[:, start:end] = valid_4of9[pattern_idx].astype(np.int8)
-        confidences *= conf
-    
-    if verbose:
-        print(f"X-EM: Complete. Mean confidence: {confidences.mean():.4f}")
-    
-    return barcodes, confidences, {'method': 'x_em', 'max_iter': max_iter}
-
-
-# =============================================================================
-# GMM: PER-CHANNEL GAUSSIAN MIXTURE MODEL
-# =============================================================================
 
 def _fit_gmm_channel(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dict]:
     """Fit 2-component GMM to single channel and extract parameters."""
@@ -171,13 +61,76 @@ def _fit_gmm_channel(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dic
         return None
 
 
-def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: float = 0.5, 
-         verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """GMM: Independent 2-component Gaussian Mixture Model per channel.
+def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """PC-GMM: Pattern-Constrained Gaussian Mixture Model."""
+    n_cells, n_channels = X.shape
+    n_blocks = n_channels // 9
     
-    Fits GMM per channel and classifies each channel independently.
-    Can produce invalid patterns (not constrained to 4-of-9).
-    """
+    if verbose:
+        print(f"PC-GMM: Processing {n_channels} channels, {n_cells} cells (n_init={n_init})")
+    
+    channel_params = {}
+    failed_channels = []
+    
+    for g in range(n_channels):
+        params = _fit_gmm_channel(X[:, g], min_int, n_init)
+        if params:
+            params['channel_index'] = g
+            del params['gmm'], params['pos_idx']
+        else:
+            failed_channels.append(g)
+        channel_params[str(g)] = params
+    
+    valid_patterns = _generate_4_of_9_patterns(n_blocks=1)
+    barcodes = np.zeros((n_cells, n_channels), dtype=int)
+    confidences = np.ones(n_cells)
+    
+    for b in range(n_blocks):
+        start, end = 9*b, 9*(b+1)
+        
+        if any(g in failed_channels for g in range(start, end)):
+            continue
+        
+        X_block = X[:, start:end]
+        log_like_off = np.zeros((n_cells, 9))
+        log_like_on = np.zeros((n_cells, 9))
+        
+        for g in range(9):
+            p = channel_params[str(start + g)]
+            if p is None:
+                continue
+            
+            log_like_off[:, g] = (
+                np.log(p['w_off'] + 1e-10) - 
+                0.5 * np.log(2 * np.pi * p['sigma_off']**2) - 
+                0.5 * ((X_block[:, g] - p['mu_off']) / p['sigma_off'])**2
+            )
+            log_like_on[:, g] = (
+                np.log(p['w_on'] + 1e-10) - 
+                0.5 * np.log(2 * np.pi * p['sigma_on']**2) - 
+                0.5 * ((X_block[:, g] - p['mu_on']) / p['sigma_on'])**2
+            )
+        
+        patterns = valid_patterns[np.newaxis, :, :]
+        log_likes = np.where(patterns == 0, log_like_off[:, np.newaxis, :], log_like_on[:, np.newaxis, :])
+        pattern_log_likes = log_likes.sum(axis=2)
+        pattern_probs = np.exp(pattern_log_likes - pattern_log_likes.max(axis=1, keepdims=True))
+        pattern_probs /= pattern_probs.sum(axis=1, keepdims=True)
+        
+        best_idx = np.argmax(pattern_probs, axis=1)
+        best_conf = pattern_probs[np.arange(n_cells), best_idx]
+        
+        barcodes[:, start:end] = valid_patterns[best_idx]
+        confidences *= best_conf
+    
+    if verbose:
+        print(f"PC-GMM: Complete. Mean confidence: {confidences.mean():.4f}")
+    
+    return barcodes, confidences, channel_params
+
+
+def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: float = 0.5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """GMM: Gaussian Mixture Model."""
     n_cells, n_channels = X.shape
     
     if verbose:
@@ -210,12 +163,8 @@ def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: floa
     return barcodes, confidences, channel_params
 
 
-# =============================================================================
-# PREMESSA: TOP-4 SELECTION
-# =============================================================================
-
 def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """PreMessa: Top-4 channel selection method."""
+    """PreMessa: Top-4 selection method."""
     n_cells, n_channels = X.shape
     n_blocks = n_channels // 9
     
@@ -245,10 +194,6 @@ def _premessa(X: np.ndarray, verbose: bool = True) -> Tuple[np.ndarray, np.ndarr
     return barcodes, confidences, {'method': 'premessa'}
 
 
-# =============================================================================
-# MANUAL: THRESHOLD-BASED GATING
-# =============================================================================
-
 def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """Manual: Threshold-based gating."""
     n_cells, n_channels = X.shape
@@ -272,17 +217,12 @@ def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tup
     return barcodes, confidences, channel_params
 
 
-# =============================================================================
-# MAIN DEBARCODE FUNCTION
-# =============================================================================
-
 def debarcode(adata: ad.AnnData,
-             method: str = 'x_em',
+             method: str = 'pc_gmm',
              layer: Optional[str] = None,
              n_init: int = 5,
              min_int: float = 0.1,
              prob_thresh: float = 0.5,
-             max_iter: int = 100,
              thresholds: Optional[List[float]] = None,
              method_name: Optional[str] = None,
              inplace: bool = True,
@@ -293,31 +233,26 @@ def debarcode(adata: ad.AnnData,
     ----------
     adata : AnnData
         Annotated data object.
-    method : {'x_em', 'gmm', 'premessa', 'manual'}, default 'x_em'
+    method : {'gmm', 'premessa', 'pc_gmm', 'manual'}, default 'pc_gmm'
         Debarcoding method:
         
-        - 'x_em': X-Code EM (default). Constrained EM that enforces valid 4-of-9
-          patterns throughout optimization. Best overall performance across all
-          barcode configurations.
-        - 'gmm': Per-channel GMM. Independent 2-component GMM per channel.
-          Can produce invalid patterns (not constrained to 4-of-9).
-        - 'premessa': Top-4 selection per block with separation-based confidence.
-        - 'manual': Fixed user-defined thresholds per channel.
+        - 'gmm': Gaussian Mixture Model per channel
+        - 'premessa': Top-4 selection per block
+        - 'pc_gmm': Pattern-Constrained GMM
+        - 'manual': Fixed thresholds
     layer : str, optional
-        Layer to use for debarcoding. Recommend using transformed layer ('log').
+        Layer to use for debarcoding. Recommend using transformed layer.
     n_init : int, default 5
-        GMM initializations (for 'gmm' method only).
+        GMM initializations (for gmm/pc_gmm).
     min_int : float, default 0.1
-        Minimum intensity for GMM fitting (for 'gmm' method only).
+        Minimum intensity for GMM fitting.
     prob_thresh : float, default 0.5
-        GMM probability threshold (for 'gmm' method only).
-    max_iter : int, default 100
-        Maximum EM iterations (for 'x_em' method only).
+        GMM probability threshold (for 'gmm' method).
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
     method_name : str, optional
         Custom name for this debarcoding run. If None, uses method name
-        and auto-increments if exists (e.g., 'x_em', 'x_em_1').
+        and auto-increments if exists (e.g., 'pc_gmm', 'pc_gmm_1').
     inplace : bool, default True
         Modify adata in place.
     verbose : bool, default True
@@ -334,9 +269,8 @@ def debarcode(adata: ad.AnnData,
     
     Examples
     --------
-    >>> adata = debarcode(adata, method='x_em', layer='log')
-    >>> adata = debarcode(adata, method='gmm', layer='log')
-    >>> adata = debarcode(adata, method='manual', thresholds=[1.5]*18)
+    >>> adata = debarcode(adata, method='pc_gmm', layer='log')
+    >>> adata = debarcode(adata, method='manual', thresholds=[1.5]*27)
     """
     from .io import get_barcode_channels
     barcode_channels = get_barcode_channels(adata)
@@ -348,7 +282,7 @@ def debarcode(adata: ad.AnnData,
         adata = adata.copy()
     
     if layer is None:
-        if method in ['x_em', 'gmm']:
+        if method in ['gmm', 'pc_gmm']:
             warnings.warn(
                 f"Using method '{method}' without a transformed layer. "
                 f"Recommend: preprocessing.transform(adata, method='log') and pass layer='log'.",
@@ -366,10 +300,10 @@ def debarcode(adata: ad.AnnData,
     final_method_name = _get_unique_method_name(adata, method, method_name)
     
     methods = {
-        'x_em': lambda: _x_em(X, max_iter, verbose),
-        'gmm': lambda: _gmm(X, n_init, min_int, prob_thresh, verbose),
-        'premessa': lambda: _premessa(X, verbose),
-        'manual': lambda: _manual(X, thresholds, verbose),
+        'manual': lambda: (_manual(X, thresholds, verbose), None),
+        'gmm': lambda: (_gmm(X, n_init, min_int, prob_thresh, verbose), None),
+        'premessa': lambda: (_premessa(X, verbose), None),
+        'pc_gmm': lambda: (_pc_gmm(X, n_init, min_int, verbose), None),
     }
     
     if method == 'manual' and thresholds is None:
@@ -378,7 +312,8 @@ def debarcode(adata: ad.AnnData,
     if method not in methods:
         raise ValueError(f"Unknown method: {method}. Valid options: {list(methods.keys())}")
     
-    barcodes, confidences, method_params = methods[method]()
+    result = methods[method]()
+    (barcodes, confidences, channel_params), _ = result
     
     pattern_strings = [''.join(map(str, b)) for b in barcodes]
     adata.obs[f'{final_method_name}_assignment'] = pattern_strings
@@ -387,32 +322,29 @@ def debarcode(adata: ad.AnnData,
     if 'debarcoding' not in adata.uns:
         adata.uns['debarcoding'] = {}
     
-    # Add channel names to params
-    for channel_idx, params in method_params.items():
-        if params and channel_idx not in ['method', 'max_iter']:
+    for channel_idx, params in channel_params.items():
+        if params and channel_idx != 'method':
             try:
                 idx = int(channel_idx)
                 if idx < len(barcode_channels):
                     params['channel'] = barcode_channels[idx]
             except (ValueError, TypeError):
-                pass
+                pass  # Skip non-numeric keys
+            
 
+    
     metadata = {
         'method': method,
         'layer': layer,
-        'n_init': n_init if method == 'gmm' else None,
-        'min_int': min_int if method == 'gmm' else None,
+        'n_init': n_init if method in ['gmm', 'pc_gmm'] else None,
+        'min_int': min_int if method in ['gmm', 'pc_gmm'] else None,
         'prob_thresh': prob_thresh if method == 'gmm' else None,
-        'max_iter': max_iter if method == 'x_em' else None,
-        'thresholds': thresholds if method == 'manual' else (
-            [method_params[str(g)]['threshold'] if method_params.get(str(g)) else None 
-             for g in range(len(barcode_channels))] if method == 'gmm' else None
-        ),
+        'thresholds': thresholds if method == 'manual' else ([channel_params[str(g)]['threshold'] if channel_params.get(str(g)) else None for g in range(len(barcode_channels))] if method == 'gmm' else None),
         'n_cells': len(adata),
         'n_channels': len(barcode_channels),
         'barcode_channels': barcode_channels,
         'mean_confidence': float(confidences.mean()),
-        'channel_params': method_params
+        'channel_params': channel_params
     }
     
     adata.uns['debarcoding'][final_method_name] = metadata
@@ -426,18 +358,13 @@ def debarcode(adata: ad.AnnData,
     return adata
 
 
-# =============================================================================
-# DEBARCODING PIPELINE
-# =============================================================================
-
 def debarcoding_pipeline(adata: ad.AnnData,
-                        method: str = 'x_em',
+                        method: str = 'pc_gmm',
                         transform_method: str = 'log',
                         cofactor: float = 5.0,
                         n_init: int = 5,
                         min_int: float = 0.1,
                         prob_thresh: float = 0.5,
-                        max_iter: int = 100,
                         thresholds: Optional[List[float]] = None,
                         # Intensity filtering
                         apply_intensity_filter: bool = True,
@@ -472,23 +399,21 @@ def debarcoding_pipeline(adata: ad.AnnData,
     ----------
     adata : AnnData
         Annotated data object with mapped barcode channels.
-    method : str, default 'x_em'
-        Debarcoding method: 'x_em', 'gmm', 'premessa', 'manual'.
+    method : str, default 'pc_gmm'
+        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'manual'.
     transform_method : str, default 'log'
         Transformation: 'log' or 'arcsinh'.
     cofactor : float, default 5.0
         Cofactor for arcsinh transformation.
     n_init : int, default 5
-        GMM initializations (for 'gmm' method).
+        GMM initializations for gmm/pc_gmm.
     min_int : float, default 0.1
         Minimum intensity for GMM fitting.
     prob_thresh : float, default 0.5
-        GMM probability threshold (for 'gmm' method).
-    max_iter : int, default 100
-        Maximum EM iterations (for 'x_em' method).
+        GMM probability threshold for 'gmm' method.
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
-    apply_intensity_filter : bool, default True
+    apply_intensity_filter : bool, default False
         Apply intensity filtering before debarcoding.
     intensity_method : str, default 'rectangular'
         Intensity filter method: 'rectangular' or 'ellipsoidal'.
@@ -544,8 +469,8 @@ def debarcoding_pipeline(adata: ad.AnnData,
     
     Examples
     --------
-    >>> adata = debarcoding_pipeline(adata, method='x_em')
-    >>> adata = debarcoding_pipeline(adata, method='x_em', apply_hamming=True)
+    >>> adata = debarcoding_pipeline(adata, method='pc_gmm')
+    >>> adata = debarcoding_pipeline(adata, method='pc_gmm', apply_hamming=False)
     """
     from .io import get_barcode_channels
     barcode_channels = get_barcode_channels(adata)
@@ -592,7 +517,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
     if verbose:
         print(f"\nStep {step}: Debarcoding")
     adata = debarcode(adata, method=method, layer=layer_name, n_init=n_init,
-                      min_int=min_int, prob_thresh=prob_thresh, max_iter=max_iter,
+                      min_int=min_int, prob_thresh=prob_thresh,
                       thresholds=thresholds, verbose=verbose)
     step += 1
     
