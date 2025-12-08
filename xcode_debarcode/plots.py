@@ -229,8 +229,8 @@ def plot_barcode_rank_histogram(adata: ad.AnnData,
     
     Examples
     --------
-    >>> fig = plot_barcode_rank_histogram(adata, 'pc_gmm_assignment')
-    >>> fig = plot_barcode_rank_histogram(adata, 'pc_gmm_assignment', valid_only=True)
+    >>> fig = plot_barcode_rank_histogram(adata, 'x_em_assignment')
+    >>> fig = plot_barcode_rank_histogram(adata, 'x_em_assignment', valid_only=True)
     """
     from .barcode import is_valid_pattern
     
@@ -375,7 +375,7 @@ def plot_cumul_barcode_rank(adata: ad.AnnData,
     
     Examples
     --------
-    >>> fig = plot_cumul_barcode_rank(adata, 'pc_gmm_assignment')
+    >>> fig = plot_cumul_barcode_rank(adata, 'x_em_assignment')
     """
     from .barcode import is_valid_pattern
     
@@ -512,7 +512,7 @@ def plot_channel_intensities(adata: ad.AnnData,
     --------
     >>> fig = plot_channel_intensities(adata)
     >>> fig = plot_channel_intensities(adata, layer='log', log_scale_x=False)
-    >>> fig = plot_channel_intensities(adata, show_method_data='pc_gmm')
+    >>> fig = plot_channel_intensities(adata, show_method_data='gmm')
     """
     
     from .io import get_barcode_channels
@@ -574,25 +574,7 @@ def plot_channel_intensities(adata: ad.AnnData,
                 method_type = 'gmm'
                 channel_params_dict = method_info.get('channel_params')
                 prob_thresh = method_info.get('prob_thresh', 0.5)
-            
-            elif base_method == 'pc_gmm':
-                method_type = 'pc_gmm'
-                channel_params_dict = method_info.get('channel_params')
-            
-            elif base_method == 'manual':
-                method_type = 'manual'
-                channel_params_dict = method_info.get('channel_params')
-            
-            elif base_method == 'auto':
-                auto_method_used = method_info.get('auto_method_used', 'pc_gmm')
-                if auto_method_used == 'pc_gmm':
-                    method_type = 'pc_gmm'
-                    channel_params_dict = method_info.get('channel_params')
-                elif auto_method_used == 'scoring':
-                    method_type = None
-                    channel_params_dict = None
-            
-            elif base_method in ['premessa', 'scoring']:
+            else:
                 method_type = None
                 channel_params_dict = None
     
@@ -653,7 +635,7 @@ def plot_channel_intensities(adata: ad.AnnData,
                     continue
                 
                 # Show OFF/ON means for GMM and PC-GMM
-                if method_type in ['gmm', 'pc_gmm']:
+                if method_type == 'gmm':
                     mu_off = params.get('mu_off')
                     mu_on = params.get('mu_on')
                     
@@ -781,7 +763,7 @@ def plot_confidence_distribution(adata: ad.AnnData,
     
     Examples
     --------
-    >>> fig = plot_confidence_distribution(adata, 'pc_gmm_confidence')
+    >>> fig = plot_confidence_distribution(adata, 'x_em_confidence')
     """
     if confidence_col not in adata.obs.columns:
         raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
@@ -912,8 +894,8 @@ def plot_hamming_graph(adata: ad.AnnData,
     
     Examples
     --------
-    >>> fig = plot_hamming_graph(adata, 'pc_gmm_assignment')
-    >>> fig = plot_hamming_graph(adata, 'pc_gmm_assignment', 'pc_gmm_confidence')
+    >>> fig = plot_hamming_graph(adata, 'x_em_assignment')
+    >>> fig = plot_hamming_graph(adata, 'x_em_assignment', 'x_em_confidence')
     """
     try:
         import networkx as nx
@@ -1109,8 +1091,8 @@ def plot_hamming_heatmap(adata: ad.AnnData,
     
     Examples
     --------
-    >>> fig = plot_hamming_heatmap(adata, 'pc_gmm_assignment')
-    >>> fig = plot_hamming_heatmap(adata, 'pc_gmm_assignment', hamming_radius=4)
+    >>> fig = plot_hamming_heatmap(adata, 'x_em_assignment')
+    >>> fig = plot_hamming_heatmap(adata, 'x_em_assignment', hamming_radius=4)
     """
     from collections import Counter
     from .barcode import is_valid_pattern

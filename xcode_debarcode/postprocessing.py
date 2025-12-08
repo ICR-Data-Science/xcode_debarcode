@@ -717,7 +717,7 @@ def hamming_cluster(adata: ad.AnnData,
         - ``{base}_hamming_assignment``: Corrected barcode assignments
         - ``{base}_hamming_remapped``: Boolean mask indicating remapped cells
         
-        where ``base`` is derived from assignment_col (e.g., 'pc_gmm').
+        where ``base`` is derived from assignment_col (e.g., 'x_em').
         Metadata stored in ``adata.uns['hamming_clustering'][assignment_col]``.
     
     Notes
@@ -739,16 +739,16 @@ def hamming_cluster(adata: ad.AnnData,
     Examples
     --------
     >>> # 18-channel with default safe ratio
-    >>> adata = hamming_cluster(adata, 'pc_gmm_assignment', 'pc_gmm_confidence', ratio=20)
+    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence', ratio=20)
     
     >>> # 27-channel data with lower ratio
-    >>> adata = hamming_cluster(adata, 'pc_gmm_assignment', 'pc_gmm_confidence', ratio=5)
+    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence', ratio=5)
     
     >>> # Small sublibrary (S ≤ 100), aggressive correction
-    >>> adata = hamming_cluster(adata, 'pc_gmm_assignment', 'pc_gmm_confidence', ratio=2)
+    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence', ratio=2)
     
     >>> # Sphere method with minimum center count
-    >>> adata = hamming_cluster(adata, 'pc_gmm_assignment', 'pc_gmm_confidence',
+    >>> adata = hamming_cluster(adata, 'x_em_assignment', 'x_em_confidence',
     ...                         method='sphere', min_count_center=100)
     """
     if method not in {"msg", "sphere"}:

@@ -10,7 +10,7 @@ io
 preprocessing
     Data transformation (log, arcsinh) and intensity outlier filtering.
 debarcode
-    Debarcoding methods (GMM-CH, CGMM-CH, GMM-B, PreMessa, Manual).
+    Debarcoding methods (X-EM, GMM, PreMessa, Manual).
 postprocessing
     Filtering, Hamming clustering, Mahalanobis filtering.
 barcode
@@ -22,16 +22,16 @@ simulate
 
 Methods Overview
 ----------------
-GMM-CH (Per-Channel GMM)
+X-EM (X-Code EM)
+    Constrained Expectation-Maximization for X-Code. Enforces valid 4-of-9
+    patterns throughout optimization. Best overall performance across all
+    barcode configurations. Recommended default method.
+GMM (Per-Channel GMM)
     Independent 2-component GMM per channel. Can produce invalid patterns.
-CGMM-CH (Constrained Per-Channel GMM)
-    Per-channel GMMs with valid pattern constraints and maximum likelihood selection.
-    Best for bimodal channel distributions.
-GMM-B (Per-Barcode GMM)
-    Blockwise 126-component GMM using all valid 4-of-9 patterns.
-    Best when some channels have unimodal distributions.
+    Useful for per-channel threshold estimation.
 PreMessa
     Top-4 channel selection per barcode block with separation-based confidence.
+    Published baseline method.
 Manual
     User-defined per-channel thresholding.
 """
