@@ -211,15 +211,29 @@ def _msg_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
     
     cell_to_pat = {c: p for p, cells in pattern_cells.items() for c in cells}
     new_patterns = np.array(patterns_str, dtype=object)
+    new_confidences = confidences.copy()
     n_remapped = 0
+    
+    # Compute median confidence per final pattern (non-remapped cells only)
+    final_pattern_cells = defaultdict(list)
+    for i in range(n_cells):
+        final = center_of.get(cell_to_pat.get(i, patterns_str[i]), patterns_str[i])
+        if final == patterns_str[i]:
+            final_pattern_cells[final].append(i)
+    
+    pattern_median_conf = {}
+    for p, cells in final_pattern_cells.items():
+        pattern_median_conf[p] = float(np.median(confidences[cells]))
+    
     for i in range(n_cells):
         final = center_of.get(cell_to_pat.get(i, patterns_str[i]), patterns_str[i])
         if final != patterns_str[i]:
             n_remapped += 1
             new_patterns[i] = final
+            new_confidences[i] = pattern_median_conf.get(final, confidences[i])
     
     stats['n_remapped'] = n_remapped
-    return new_patterns, confidences, stats
+    return new_patterns, new_confidences, stats
 
 
 def _sphere_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
@@ -326,15 +340,29 @@ def _sphere_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
         mass[p], mass[best] = 0, len(pattern_cells[best])
     
     new_patterns = np.array(patterns_str, dtype=object)
+    new_confidences = confidences.copy()
     n_remapped = 0
+    
+    # Compute median confidence per final pattern (non-remapped cells only)
+    final_pattern_cells = defaultdict(list)
+    for i in range(n_cells):
+        final = parent.get(patterns_str[i], patterns_str[i])
+        if final == patterns_str[i]:
+            final_pattern_cells[final].append(i)
+    
+    pattern_median_conf = {}
+    for p, cells in final_pattern_cells.items():
+        pattern_median_conf[p] = float(np.median(confidences[cells]))
+    
     for i in range(n_cells):
         final = parent.get(patterns_str[i], patterns_str[i])
         if final != patterns_str[i]:
             n_remapped += 1
             new_patterns[i] = final
+            new_confidences[i] = pattern_median_conf.get(final, confidences[i])
     
     stats['n_remapped'] = n_remapped
-    return new_patterns, confidences, stats
+    return new_patterns, new_confidences, stats
 
 
 def filter_cells_conf(adata: ad.AnnData,
@@ -348,29 +376,33 @@ def filter_cells_conf(adata: ad.AnnData,
                         verbose: bool = True) -> ad.AnnData:
     """Filter cells by confidence score.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     confidence_col : str
-        Name of confidence column in adata.obs
+        Name of confidence column in adata.obs.
     method : str
-        Filtering method: 'adaptive', 'threshold', 'percentile' (default: 'percentile')
+        Filtering method. Default: 'percentile'.
+        - 'threshold': keep cells with confidence >= value
+        - 'percentile': keep top value% of cells by confidence
+        - 'adaptive': GMM-based automatic threshold
     value : float, optional
-        Threshold value (usage depends on method)
+        For 'threshold': minimum confidence to pass.
+        For 'percentile': percentage of top cells to keep (e.g., 90 keeps top 90%).
+        Default: 90.
     filter_or_flag : str
-        'flag' or 'filter' (default: 'flag')
+        'flag' to add boolean column, 'filter' to remove cells. Default: 'flag'.
     adaptive_n_init : int
-        GMM initializations for adaptive method (default: 5)
+        GMM initializations for adaptive method. Default: 5.
     filter_name : str, optional
         Custom name for this filtering run. If None, auto-generates unique name.
     inplace : bool
-        Modify adata in place (default: True)
+        Modify adata in place. Default: True.
     
-    Returns:
-    --------
-    adata : AnnData
-        Modified AnnData with filtering results
+    Returns
+    -------
+    AnnData with filtering results.
     """
     if not inplace:
         adata = adata.copy()
@@ -471,12 +503,11 @@ def filter_cells_conf(adata: ad.AnnData,
 
 def filter_pattern(adata: ad.AnnData,
                    assignment_col: str,
-                   confidence_col: str,
+                   confidence_col: Optional[str] = None,
                    metric: str = 'count',
                    method: str = 'threshold',
                    value: float = 10,
                    filter_or_flag: str = 'flag',
-                   exclude: Optional[str] = None,
                    filter_name: Optional[str] = None,
                    inplace: bool = True,
                    verbose: bool = True) -> ad.AnnData:
@@ -488,23 +519,24 @@ def filter_pattern(adata: ad.AnnData,
         Annotated data object.
     assignment_col : str
         Name of barcode assignment column in adata.obs.
-    confidence_col : str
-        Name of confidence column in adata.obs.
+    confidence_col : str, optional
+        Name of confidence column in adata.obs. Required when metric is
+        'median_conf' or 'score'.
     metric : str
-        Pattern metric: 'count', 'median_conf', or 'score' (count * median_conf).
-        Default: 'count'.
+        Pattern metric. Default: 'count'.
+        - 'count': number of cells per pattern
+        - 'median_conf': median confidence per pattern
+        - 'score': count * median_conf
     method : str
-        Filtering method: 'threshold' or 'percentile'. Default: 'threshold'.
+        Filtering method. Default: 'threshold'.
+        - 'threshold': keep patterns with metric >= value
+        - 'percentile': keep top value% of patterns by metric
     value : float
-        Threshold value. For 'threshold', patterns with metric >= value pass.
-        For 'percentile', patterns in top value% by metric pass. Default: 10.
+        For 'threshold': minimum metric value to pass.
+        For 'percentile': percentage of top patterns to keep (e.g., 90 keeps top 90%).
+        Default: 10.
     filter_or_flag : str
         'flag' to add boolean column, 'filter' to remove cells. Default: 'flag'.
-    exclude : str, optional
-        Boolean column in adata.obs. If provided, cells where this column is True
-        are excluded from metric calculation, but still included in filtering if
-        their pattern passes. Useful for excluding remapped cells when computing
-        pattern statistics post-hamming clustering.
     filter_name : str, optional
         Custom name for this filtering run. If None, auto-generates unique name.
     inplace : bool
@@ -521,34 +553,23 @@ def filter_pattern(adata: ad.AnnData,
     
     if assignment_col not in adata.obs.columns:
         raise ValueError(f"Assignment column '{assignment_col}' not found in adata.obs")
-    if confidence_col not in adata.obs.columns:
-        raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
-    if exclude is not None and exclude not in adata.obs.columns:
-        raise ValueError(f"Exclude column '{exclude}' not found in adata.obs")
     if metric not in {'count', 'median_conf', 'score'}:
         raise ValueError(f"metric must be 'count', 'median_conf', or 'score', got {metric!r}")
+    if metric in {'median_conf', 'score'} and confidence_col is None:
+        raise ValueError(f"confidence_col is required when metric is '{metric}'")
+    if confidence_col is not None and confidence_col not in adata.obs.columns:
+        raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
     if method not in {'threshold', 'percentile'}:
         raise ValueError(f"method must be 'threshold' or 'percentile', got {method!r}")
     if filter_or_flag not in {'flag', 'filter'}:
         raise ValueError(f"filter_or_flag must be 'flag' or 'filter', got {filter_or_flag!r}")
     
     patterns = adata.obs[assignment_col].values.astype(str)
-    confidences = adata.obs[confidence_col].values.astype(np.float64)
+    confidences = adata.obs[confidence_col].values.astype(np.float64) if confidence_col else None
     
-    # Determine which cells to include in metric calculation
-    if exclude is not None:
-        include_mask = ~adata.obs[exclude].values.astype(bool)
-        n_excluded = (~include_mask).sum()
-        if verbose:
-            print(f"Excluding {n_excluded} cells from metric calculation (column: '{exclude}')")
-    else:
-        include_mask = np.ones(len(adata), dtype=bool)
-    
-    # Compute per-pattern statistics using only included cells
+    # Compute per-pattern statistics
     pattern_to_cells = {}
     for i, p in enumerate(patterns):
-        if not include_mask[i]:
-            continue
         if p not in pattern_to_cells:
             pattern_to_cells[p] = []
         pattern_to_cells[p].append(i)
@@ -556,12 +577,12 @@ def filter_pattern(adata: ad.AnnData,
     pattern_stats = {}
     for p, indices in pattern_to_cells.items():
         count = len(indices)
-        median_conf = float(np.median(confidences[indices]))
-        pattern_stats[p] = {
-            'count': count,
-            'median_conf': median_conf,
-            'score': count * median_conf
-        }
+        stats = {'count': count}
+        if confidences is not None:
+            median_conf = float(np.median(confidences[indices]))
+            stats['median_conf'] = median_conf
+            stats['score'] = count * median_conf
+        pattern_stats[p] = stats
     
     metric_values = np.array([pattern_stats[p][metric] for p in pattern_stats])
     
@@ -625,7 +646,6 @@ def filter_pattern(adata: ad.AnnData,
         'value': value,
         'threshold': float(threshold),
         'filter_or_flag': filter_or_flag,
-        'exclude': exclude,
         'n_patterns_pass': int(n_patterns_pass),
         'n_patterns_total': int(n_patterns_total),
         'n_cells_pass': int(n_pass),
@@ -716,6 +736,8 @@ def hamming_cluster(adata: ad.AnnData,
     -------
     AnnData with columns added:
         - `{base}_hamming_assignment`: corrected assignments
+        - `{base}_hamming_confidence`: confidence scores (remapped cells receive the
+          median confidence of their target pattern)
         - `{base}_hamming_remapped`: boolean mask of remapped cells
     where `base` is `assignment_col` with trailing suffix (e.g. '_assignment') stripped.
     
@@ -725,6 +747,9 @@ def hamming_cluster(adata: ad.AnnData,
     valid neighbor within radius without ratio/confidence tests. Valid patterns 
     are remapped only to even-distance valid neighbors that pass ratio and 
     confidence tests.
+    
+    Remapped cells are assigned the median confidence of the pattern they are
+    remapped to (computed from non-remapped cells only).
     """
     if method not in {"msg", "sphere"}:
         raise ValueError(f"method must be 'msg' or 'sphere', got {method!r}")
@@ -768,12 +793,14 @@ def hamming_cluster(adata: ad.AnnData,
     X_sub = X[eligible_idx] if X is not None else None
     
     if method == 'msg':
-        new_p, _, stats = _msg_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, ratio_metric)
+        new_p, new_c, stats = _msg_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, ratio_metric)
     else:
-        new_p, _, stats = _sphere_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, min_count_center, ratio_metric)
+        new_p, new_c, stats = _sphere_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, min_count_center, ratio_metric)
     
     new_patterns = patterns_str.copy()
+    new_confidences = confidences.copy()
     new_patterns[eligible_idx] = new_p
+    new_confidences[eligible_idx] = new_c
     remapped = new_patterns != patterns_str
     n_remapped = remapped.sum()
     pct_remapped = 100 * n_remapped / n_cells
@@ -786,6 +813,7 @@ def hamming_cluster(adata: ad.AnnData,
             print(f"  Centers found: {stats['n_centers']}")
     
     adata.obs[f"{base_name}_hamming_assignment"] = new_patterns
+    adata.obs[f"{base_name}_hamming_confidence"] = new_confidences
     adata.obs[f"{base_name}_hamming_remapped"] = remapped
     
     if save_results:
@@ -805,6 +833,7 @@ def hamming_cluster(adata: ad.AnnData,
             'n_remapped': int(n_remapped),
             'pct_remapped': float(pct_remapped),
             'output_assignment_col': f"{base_name}_hamming_assignment",
+            'output_confidence_col': f"{base_name}_hamming_confidence",
             'output_remapped_col': f"{base_name}_hamming_remapped",
             'n_ties': stats.get('n_ties', 0),
             'n_lda': stats.get('n_lda', 0),
@@ -822,6 +851,7 @@ def hamming_cluster(adata: ad.AnnData,
     if verbose:
         print(f"  [+] Results stored in:")
         print(f"      - adata.obs['{base_name}_hamming_assignment']")
+        print(f"      - adata.obs['{base_name}_hamming_confidence']")
         print(f"      - adata.obs['{base_name}_hamming_remapped']")
     
     return adata
