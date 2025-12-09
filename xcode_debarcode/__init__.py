@@ -10,7 +10,7 @@ io
 preprocessing
     Data transformation (log, arcsinh) and intensity outlier filtering.
 debarcode
-    Debarcoding methods (GMM, PreMessa, PC-GMM, Manual).
+    Debarcoding methods (GMM, PreMessa, PC-GMM, GMM-BIC, Manual).
 postprocessing
     Filtering, Hamming clustering, Mahalanobis filtering.
 barcode
@@ -28,6 +28,8 @@ PreMessa
     Iterative top-4 channel selection with per-channel normalization.
 PC-GMM (Pattern-Constrained GMM)
     Channel-level GMMs with valid pattern constraints and maximum likelihood selection.
+GMM-BIC (Cluster-based GMM)
+    Global clustering in PCA space for low barcode regimes with unimodal channels.
 Manual
     Manual user-fixed per-channel thresholding.
 """

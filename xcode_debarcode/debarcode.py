@@ -2,8 +2,9 @@
 import numpy as np
 import anndata as ad
 import warnings
-from typing import Optional, List, Dict, Tuple
+from typing import Optional, List, Dict, Tuple, Union
 from sklearn.mixture import GaussianMixture
+from sklearn.decomposition import PCA
 from .barcode import _generate_4_of_9_patterns
 
 __all__ = ["debarcode", "debarcoding_pipeline"]
@@ -188,15 +189,7 @@ def _premessa_core(X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def _premessa(X: np.ndarray, n_iter: int = 2, min_cells: int = 10, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """PreMessa: Top-4 selection with iterative per-channel normalization.
-    
-    Performs iterative refinement by normalizing each channel based on cells
-    classified as ON, then re-running top-4 selection. This corrects for
-    systematic intensity differences between channels.
-    
-    The returned delta (confidence) is the minimum separation (4th - 5th highest)
-    across blocks. Use threshold-based filtering on deltas for quality control.
-    """
+    """PreMessa: Top-4 selection with iterative per-channel normalization."""
     n_cells, n_channels = X.shape
     
     if verbose:
@@ -244,6 +237,128 @@ def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tup
     return barcodes, confidences, channel_params
 
 
+def _centroid_to_pattern(centroid: np.ndarray, n_blocks: int) -> np.ndarray:
+    """Convert cluster centroid to valid 4-of-9 pattern per block."""
+    D = len(centroid)
+    pattern = np.zeros(D, dtype=np.int8)
+    for b in range(n_blocks):
+        start, end = b * 9, (b + 1) * 9
+        top4 = np.argsort(centroid[start:end])[-4:]
+        pattern[start:end][top4] = 1
+    return pattern
+
+
+def _select_k_kneedle(ks: np.ndarray, bics: np.ndarray) -> int:
+    """Select K using Kneedle algorithm (point furthest from diagonal)."""
+    from kneed import KneeLocator
+    kl = KneeLocator(ks, bics, curve='convex', direction='decreasing')
+    return kl.elbow if kl.elbow is not None else ks[np.argmin(bics)]
+
+
+def _gmm_bic(X: np.ndarray, 
+             max_components: int = 30,
+             n_components: Optional[int] = None,
+             n_pca: Optional[int] = None,
+             k_selection: str = 'bic',
+             verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
+    """GMM-BIC: Cluster-based debarcoding for low barcode regimes."""
+    n_cells, n_channels = X.shape
+    n_blocks = n_channels // 9
+    
+    if n_pca is None:
+        n_pca = n_blocks * 4
+    n_pca = min(n_pca, n_channels - 1, n_cells - 1)
+    
+    if verbose:
+        print(f"GMM-BIC: Processing {n_channels} channels, {n_cells} cells")
+        print(f"  PCA components: {n_pca}, K selection: {k_selection}")
+    
+    pca = PCA(n_components=n_pca)
+    X_pca = pca.fit_transform(X)
+    var_explained = pca.explained_variance_ratio_.sum()
+    
+    if verbose:
+        print(f"  PCA variance explained: {var_explained*100:.1f}%")
+    
+    if n_components is not None:
+        best_k = n_components
+        bic_values = []
+    else:
+        ks, bics = [], []
+        for k in range(2, max_components + 1):
+            try:
+                gmm = GaussianMixture(n_components=k, covariance_type='diag',
+                                      random_state=42, n_init=3, max_iter=300, reg_covar=1e-6)
+                gmm.fit(X_pca)
+                ks.append(k)
+                bics.append(gmm.bic(X_pca))
+            except:
+                continue
+        
+        if len(ks) < 2:
+            raise ValueError("GMM fitting failed for all K values")
+        
+        ks, bics = np.array(ks), np.array(bics)
+        bic_values = list(zip(ks.tolist(), bics.tolist()))
+        
+        if k_selection == 'kneedle':
+            best_k = _select_k_kneedle(ks, bics)
+        else:
+            best_k = ks[np.argmin(bics)]
+        
+        if verbose:
+            print(f"  K selected: {best_k}")
+    
+    gmm = GaussianMixture(n_components=best_k, covariance_type='diag',
+                          random_state=42, n_init=5, max_iter=300, reg_covar=1e-6)
+    gmm.fit(X_pca)
+    
+    labels = gmm.predict(X_pca)
+    probs = gmm.predict_proba(X_pca)
+    
+    cluster_patterns = {}
+    for label in range(best_k):
+        mask = labels == label
+        if mask.sum() > 0:
+            centroid = X[mask].mean(axis=0)
+            cluster_patterns[label] = _centroid_to_pattern(centroid, n_blocks)
+    
+    barcodes = np.zeros((n_cells, n_channels), dtype=np.int8)
+    confidences = np.zeros(n_cells)
+    
+    pattern_to_clusters = {}
+    for label, pattern in cluster_patterns.items():
+        pattern_str = ''.join(map(str, pattern))
+        if pattern_str not in pattern_to_clusters:
+            pattern_to_clusters[pattern_str] = []
+        pattern_to_clusters[pattern_str].append(label)
+    
+    for i in range(n_cells):
+        assigned_pattern = cluster_patterns[labels[i]]
+        pattern_str = ''.join(map(str, assigned_pattern))
+        barcodes[i] = assigned_pattern
+        confidences[i] = probs[i, pattern_to_clusters[pattern_str]].sum()
+    
+    if verbose:
+        n_patterns = len(pattern_to_clusters)
+        print(f"GMM-BIC: Complete. K={best_k}, unique patterns={n_patterns}, mean confidence={confidences.mean():.4f}")
+    
+    params = {
+        'method': 'gmm_bic',
+        'n_pca': n_pca,
+        'var_explained': float(var_explained),
+        'k_selection': k_selection,
+        'k_selected': best_k,
+        'max_components': max_components,
+        'bic_values': bic_values if n_components is None else None,
+        'n_unique_patterns': len(pattern_to_clusters),
+        'cluster_patterns': {k: ''.join(map(str, v)) for k, v in cluster_patterns.items()},
+        'pattern_to_clusters': pattern_to_clusters
+    }
+    
+    return barcodes, confidences, params
+
+
 def debarcode(adata: ad.AnnData,
              method: str = 'pc_gmm',
              layer: Optional[str] = None,
@@ -252,6 +367,10 @@ def debarcode(adata: ad.AnnData,
              prob_thresh: float = 0.5,
              n_iter: int = 2,
              thresholds: Optional[List[float]] = None,
+             max_components: int = 30,
+             n_components: Optional[int] = None,
+             n_pca: Optional[int] = None,
+             k_selection: str = 'bic',
              method_name: Optional[str] = None,
              inplace: bool = True,
              verbose: bool = True) -> ad.AnnData:
@@ -261,12 +380,13 @@ def debarcode(adata: ad.AnnData,
     ----------
     adata : AnnData
         Annotated data object.
-    method : {'gmm', 'premessa', 'pc_gmm', 'manual'}, default 'pc_gmm'
+    method : {'gmm', 'premessa', 'pc_gmm', 'gmm_bic', 'manual'}, default 'pc_gmm'
         Debarcoding method:
         
         - 'gmm': Gaussian Mixture Model per channel
         - 'premessa': Iterative top-4 selection per block
         - 'pc_gmm': Pattern-Constrained GMM
+        - 'gmm_bic': Cluster-based GMM for low barcode regimes
         - 'manual': Fixed thresholds
     layer : str, optional
         Layer to use for debarcoding. Recommend using transformed layer.
@@ -280,6 +400,16 @@ def debarcode(adata: ad.AnnData,
         Normalization iterations (for 'premessa' method).
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
+    max_components : int, default 30
+        Maximum GMM components to test (for 'gmm_bic' method).
+    n_components : int, optional
+        Fixed number of GMM components (for 'gmm_bic' method). If provided,
+        skips automatic K selection.
+    n_pca : int, optional
+        Number of PCA components (for 'gmm_bic' method). Default: n_blocks * 4.
+    k_selection : {'bic', 'kneedle'}, default 'bic'
+        K selection method (for 'gmm_bic'): 'bic' minimizes BIC, 'kneedle'
+        finds elbow in BIC curve.
     method_name : str, optional
         Custom name for this debarcoding run. If None, uses method name
         and auto-increments if exists (e.g., 'pc_gmm', 'pc_gmm_1').
@@ -300,7 +430,9 @@ def debarcode(adata: ad.AnnData,
     Examples
     --------
     >>> adata = debarcode(adata, method='pc_gmm', layer='log')
-    >>> adata = debarcode(adata, method='premessa', layer='arcsinh_cf10.0')
+    >>> adata = debarcode(adata, method='premessa', layer='log')
+    >>> adata = debarcode(adata, method='gmm_bic', layer='log', max_components=20)
+    >>> adata = debarcode(adata, method='gmm_bic', layer='log', n_components=5)
     >>> adata = debarcode(adata, method='manual', thresholds=[1.5]*27)
     """
     from .io import get_barcode_channels
@@ -313,19 +445,11 @@ def debarcode(adata: ad.AnnData,
         adata = adata.copy()
     
     if layer is None:
-        if method in ['gmm', 'pc_gmm']:
-            warnings.warn(
-                f"Using method '{method}' without a transformed layer. "
-                f"Recommend: preprocessing.transform(adata, method='log') and pass layer='log'.",
-                UserWarning
-            )
-        elif method == 'premessa':
-            warnings.warn(
-                f"Using method 'premessa' without a transformed layer. "
-                f"Recommend: preprocessing.transform(adata, method='arcsinh', cofactor=10.0) "
-                f"and pass layer='arcsinh_cf10.0'.",
-                UserWarning
-            )
+        warnings.warn(
+            f"Using method '{method}' without a transformed layer. "
+            f"Recommend: preprocessing.transform(adata, method='log') and pass layer='log'.",
+            UserWarning
+        )
     
     X = _get_data_matrix(adata, barcode_channels, layer)
     final_method_name = _get_unique_method_name(adata, method, method_name)
@@ -335,6 +459,7 @@ def debarcode(adata: ad.AnnData,
         'gmm': lambda: (_gmm(X, n_init, min_int, prob_thresh, verbose), None),
         'premessa': lambda: (_premessa(X, n_iter, verbose=verbose), None),
         'pc_gmm': lambda: (_pc_gmm(X, n_init, min_int, verbose), None),
+        'gmm_bic': lambda: (_gmm_bic(X, max_components, n_components, n_pca, k_selection, verbose), None),
     }
     
     if method == 'manual' and thresholds is None:
@@ -354,7 +479,7 @@ def debarcode(adata: ad.AnnData,
         adata.uns['debarcoding'] = {}
     
     for channel_idx, params in channel_params.items():
-        if params and channel_idx != 'method':
+        if params and channel_idx != 'method' and not channel_idx.startswith('cluster') and not channel_idx.startswith('pattern'):
             try:
                 idx = int(channel_idx)
                 if idx < len(barcode_channels):
@@ -378,6 +503,18 @@ def debarcode(adata: ad.AnnData,
         'channel_params': channel_params
     }
     
+    if method == 'gmm_bic':
+        metadata.update({
+            'max_components': channel_params.get('max_components'),
+            'n_components': n_components,
+            'n_pca': channel_params.get('n_pca'),
+            'var_explained': channel_params.get('var_explained'),
+            'k_selection': channel_params.get('k_selection'),
+            'k_selected': channel_params.get('k_selected'),
+            'bic_values': channel_params.get('bic_values'),
+            'n_unique_patterns': channel_params.get('n_unique_patterns'),
+        })
+    
     adata.uns['debarcoding'][final_method_name] = metadata
     
     if verbose:
@@ -398,6 +535,10 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         prob_thresh: float = 0.5,
                         n_iter: int = 2,
                         thresholds: Optional[List[float]] = None,
+                        max_components: int = 30,
+                        n_components: Optional[int] = None,
+                        n_pca: Optional[int] = None,
+                        k_selection: str = 'bic',
                         # Intensity filtering
                         apply_intensity_filter: bool = True,
                         intensity_method: str = 'rectangular',
@@ -432,7 +573,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
     adata : AnnData
         Annotated data object with mapped barcode channels.
     method : str, default 'pc_gmm'
-        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'manual'.
+        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'gmm_bic', 'manual'.
     transform_method : str, default 'log'
         Transformation: 'log' or 'arcsinh'.
     cofactor : float, default 10.0
@@ -447,6 +588,14 @@ def debarcoding_pipeline(adata: ad.AnnData,
         Normalization iterations for 'premessa' method.
     thresholds : list of float, optional
         Manual thresholds for 'manual' method (one per channel).
+    max_components : int, default 30
+        Maximum GMM components to test (for 'gmm_bic' method).
+    n_components : int, optional
+        Fixed number of GMM components (for 'gmm_bic' method).
+    n_pca : int, optional
+        Number of PCA components (for 'gmm_bic' method). Default: n_blocks * 4.
+    k_selection : {'bic', 'kneedle'}, default 'bic'
+        K selection method (for 'gmm_bic').
     apply_intensity_filter : bool, default False
         Apply intensity filtering before debarcoding.
     intensity_method : str, default 'rectangular'
@@ -504,6 +653,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
     Examples
     --------
     >>> adata = debarcoding_pipeline(adata, method='pc_gmm')
+    >>> adata = debarcoding_pipeline(adata, method='gmm_bic', max_components=20)
     >>> adata = debarcoding_pipeline(adata, method='pc_gmm', apply_hamming=False)
     """
     from .io import get_barcode_channels
@@ -552,7 +702,9 @@ def debarcoding_pipeline(adata: ad.AnnData,
         print(f"\nStep {step}: Debarcoding")
     adata = debarcode(adata, method=method, layer=layer_name, n_init=n_init,
                       min_int=min_int, prob_thresh=prob_thresh, n_iter=n_iter,
-                      thresholds=thresholds, verbose=verbose)
+                      thresholds=thresholds, max_components=max_components,
+                      n_components=n_components, n_pca=n_pca, k_selection=k_selection,
+                      verbose=verbose)
     step += 1
     
     method_name = list(adata.uns['debarcoding'].keys())[-1]
