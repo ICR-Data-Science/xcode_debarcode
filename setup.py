@@ -20,6 +20,7 @@ setup(
         'plotly>=5.0.0',
         'kaleido>=0.2.0',
         'readfcs',
+        'kneed>=0.8.0',
     ],
     python_requires='>=3.8',
     classifiers=[
