@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 from typing import Optional, Dict, Tuple, List
 from .barcode import is_valid_pattern
 
-__all__ = ["filter_cells_conf", "filter_pattern", "hamming_cluster", "mahalanobis_filter"]
+__all__ = ["filter_cells_conf", "filter_pattern", "hamming_cluster", "mahal_conf"]
 
 
 def _adaptive_threshold_gmm(values, n_init=5):
@@ -114,7 +114,7 @@ def _lda_classify(p: str, candidates: List[str], pattern_cells: Dict[str, set],
 
 
 def _msg_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
-                 X: Optional[np.ndarray], radius: int, ratio: float, test_conf: bool,
+                 X: Optional[np.ndarray], radius: int, ratio: float,
                  tie_break: str, ratio_metric: str) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """Message passing clustering."""
     n_cells = len(patterns_str)
@@ -163,8 +163,6 @@ def _msg_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
                 else:
                     if mass.get(q, 0) < ratio * N_p:
                         continue
-                if test_conf and pattern_stats[q]['median'] <= conf_p:
-                    continue
             candidates_with_dist.append((q, dist))
         
         if not candidates_with_dist:
@@ -237,7 +235,7 @@ def _msg_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
 
 
 def _sphere_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
-                    X: Optional[np.ndarray], radius: int, ratio: float, test_conf: bool,
+                    X: Optional[np.ndarray], radius: int, ratio: float,
                     tie_break: str, min_count_center: int, ratio_metric: str) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """Sphere clustering: local maxima centers, remap within radius."""
     n_cells = len(patterns_str)
@@ -301,8 +299,6 @@ def _sphere_cluster(patterns_str: np.ndarray, confidences: np.ndarray,
                 else:
                     if mass.get(centers[i], 0) < ratio * N_p:
                         continue
-                if test_conf and pattern_stats[centers[i]]['median'] <= conf_p:
-                    continue
             valid_idx.append((i, d))
         
         if not valid_idx:
@@ -667,7 +663,6 @@ def hamming_cluster(adata: ad.AnnData,
                     ratio: float = 15.0,
                     ratio_metric: str = 'count',
                     tie_break: str = 'lda',
-                    test_conf: bool = True,
                     low_conf_perc: Optional[float] = None,
                     min_count_center: int = 1,
                     layer: str = 'log',
@@ -683,7 +678,7 @@ def hamming_cluster(adata: ad.AnnData,
     Recommended settings
     --------------------
     18-channel (2 blocks):
-        Default settings work well: method='msg', ratio=15, tie_break='lda', test_conf=True
+        Default settings work well: method='msg', ratio=15, tie_break='lda'
     
     27-channel (3 blocks):
         Lower ratio recommended due to sparser barcode space: ratio=5
@@ -703,8 +698,7 @@ def hamming_cluster(adata: ad.AnnData,
     assignment_col : str
         Column in adata.obs with barcode assignments.
     confidence_col : str
-        Column in adata.obs with confidence scores (used for ratio_metric='score' 
-        and test_conf).
+        Column in adata.obs with confidence scores (used for ratio_metric='score').
     method : str
         'msg' (message passing) or 'sphere' (local maxima). Default: 'msg'.
     radius : int
@@ -717,8 +711,6 @@ def hamming_cluster(adata: ad.AnnData,
         Default: 'count'.
     tie_break : str
         'no_remap', 'count', or 'lda'. Default: 'lda'.
-    test_conf : bool
-        Only remap valid patterns to higher confidence neighbors. Default: True.
     low_conf_perc : float or None
         Only remap bottom N% confidence cells. Default: None (all).
     min_count_center : int
@@ -736,20 +728,17 @@ def hamming_cluster(adata: ad.AnnData,
     -------
     AnnData with columns added:
         - `{base}_hamming_assignment`: corrected assignments
-        - `{base}_hamming_confidence`: confidence scores (remapped cells receive the
-          median confidence of their target pattern)
+        - `{base}_hamming_confidence`: Mahalanobis confidence (recomputed)
         - `{base}_hamming_remapped`: boolean mask of remapped cells
     where `base` is `assignment_col` with trailing suffix (e.g. '_assignment') stripped.
     
     Notes
     -----
     Invalid patterns (not 4-of-9 per block) are always remapped to the nearest
-    valid neighbor within radius without ratio/confidence tests. Valid patterns 
-    are remapped only to even-distance valid neighbors that pass ratio and 
-    confidence tests.
+    valid neighbor within radius without ratio tests. Valid patterns are remapped 
+    only to even-distance valid neighbors that pass the ratio test.
     
-    Remapped cells are assigned the median confidence of the pattern they are
-    remapped to (computed from non-remapped cells only).
+    Mahalanobis confidence is recomputed for all cells after remapping.
     """
     if method not in {"msg", "sphere"}:
         raise ValueError(f"method must be 'msg' or 'sphere', got {method!r}")
@@ -768,7 +757,7 @@ def hamming_cluster(adata: ad.AnnData,
     
     if verbose:
         print(f"Hamming clustering: method={method}, radius={radius}, ratio={ratio}, "
-              f"ratio_metric={ratio_metric}, tie_break={tie_break}, test_conf={test_conf}")
+              f"ratio_metric={ratio_metric}, tie_break={tie_break}")
     
     X = None
     if tie_break == 'lda' and layer in adata.layers:
@@ -793,17 +782,26 @@ def hamming_cluster(adata: ad.AnnData,
     X_sub = X[eligible_idx] if X is not None else None
     
     if method == 'msg':
-        new_p, new_c, stats = _msg_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, ratio_metric)
+        new_p, new_c, stats = _msg_cluster(p_sub, c_sub, X_sub, radius, ratio, tie_break, ratio_metric)
     else:
-        new_p, new_c, stats = _sphere_cluster(p_sub, c_sub, X_sub, radius, ratio, test_conf, tie_break, min_count_center, ratio_metric)
+        new_p, new_c, stats = _sphere_cluster(p_sub, c_sub, X_sub, radius, ratio, tie_break, min_count_center, ratio_metric)
     
     new_patterns = patterns_str.copy()
-    new_confidences = confidences.copy()
     new_patterns[eligible_idx] = new_p
-    new_confidences[eligible_idx] = new_c
     remapped = new_patterns != patterns_str
     n_remapped = remapped.sum()
     pct_remapped = 100 * n_remapped / n_cells
+    
+    # Recompute Mahalanobis confidence based on new assignments
+    from .debarcode import _compute_mahalanobis_confidence
+    barcode_channels = adata.uns.get('barcode_channels', [])
+    if barcode_channels and layer in adata.layers:
+        bc_idx = [list(adata.var_names).index(ch) for ch in barcode_channels]
+        X_conf = adata.layers[layer][:, bc_idx].astype(np.float64)
+        new_confidences = _compute_mahalanobis_confidence(X_conf, new_patterns)
+    else:
+        new_confidences = confidences.copy()
+        new_confidences[eligible_idx] = new_c
     
     if verbose:
         print(f"  Remapped: {n_remapped}/{n_cells} cells ({pct_remapped:.1f}%)")
@@ -826,7 +824,6 @@ def hamming_cluster(adata: ad.AnnData,
             'ratio': ratio,
             'ratio_metric': ratio_metric,
             'tie_break': tie_break,
-            'test_conf': test_conf,
             'low_conf_perc': low_conf_perc,
             'min_count_center': min_count_center if method == 'sphere' else None,
             'n_eligible': int(n_eligible),
@@ -857,183 +854,45 @@ def hamming_cluster(adata: ad.AnnData,
     return adata
 
 
-def mahalanobis_filter(adata: ad.AnnData,
-                      assignment_col: str,
-                      confidence_col: Optional[str] = None,
-                      layer: Optional[str] = None,
-                      mahal_threshold: Optional[float] = None,
-                      confidence_threshold: Optional[float] = None,
-                      filter_or_flag: str = 'flag',
-                      min_cells_for_cov: int = 10,
-                      filter_name: Optional[str] = None,
-                      inplace: bool = True,
-                      verbose: bool = True) -> ad.AnnData:
-    """Filter cells by Mahalanobis distance from barcode pattern centroid.
+def mahal_conf(adata: ad.AnnData,
+               assignment_col: str,
+               layer: str = 'log',
+               min_cells: int = 5) -> np.ndarray:
+    """Compute Mahalanobis-based confidence for pattern assignments.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object with barcode channels in ``adata.uns['barcode_channels']``.
     assignment_col : str
-        Column name with barcode assignments (string patterns)
-    confidence_col : str, optional
-        Column name with confidence scores
-    layer : str, optional
-        Layer to use for distance calculation
-    mahal_threshold : float, optional
-        Maximum Mahalanobis distance threshold
-    confidence_threshold : float, optional
-        Minimum confidence threshold
-    filter_or_flag : str
-        'flag' or 'filter' (default: 'flag')
-    min_cells_for_cov : int
-        Minimum cells per pattern to compute covariance (default: 10)
-    filter_name : str, optional
-        Custom name for this filtering run
-    inplace : bool
-        Modify adata in place (default: True)
+        Column in ``adata.obs`` containing pattern assignments.
+    layer : str, default 'log'
+        Layer to use for computing distances.
+    min_cells : int, default 5
+        Minimum cells per pattern. Patterns with fewer cells get confidence 0.
     
-    Returns:
-    --------
-    adata : AnnData
-        Modified AnnData with filtering results
+    Returns
+    -------
+    ndarray
+        Confidence scores in [0, 1]. conf = 1/(1 + d²/n_channels) where d² is 
+        squared Mahalanobis distance.
     """
-    if not inplace:
-        adata = adata.copy()
+    from .debarcode import _compute_mahalanobis_confidence
     
-    from .io import get_barcode_channels
+    barcode_channels = adata.uns.get('barcode_channels', [])
+    if not barcode_channels:
+        raise ValueError("No barcode_channels in adata.uns")
     
-    if assignment_col not in adata.obs.columns:
-        raise ValueError(f"Assignment column '{assignment_col}' not found in adata.obs")
+    bc_idx = [list(adata.var_names).index(ch) for ch in barcode_channels]
     
-    if confidence_col and confidence_col not in adata.obs.columns:
-        raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
-    
-    if filter_or_flag not in ['flag', 'filter']:
-        raise ValueError(f"filter_or_flag must be 'flag' or 'filter', got '{filter_or_flag}'")
-    
-    barcode_channels = get_barcode_channels(adata)
-    filter_name = filter_name or assignment_col
-
-    if verbose:
-        print(f"Mahalanobis distance filtering...")
-        print(f"  Assignment: {assignment_col}")
-        if confidence_col:
-            print(f"  Confidence: {confidence_col}")
-        print(f"  Layer: {layer or '.X (raw)'}")
-    
-    if layer and layer in adata.layers:
-        X = np.column_stack([adata[:, ch].layers[layer].flatten() for ch in barcode_channels])
+    if layer in adata.layers:
+        X = adata.layers[layer][:, bc_idx].astype(np.float64)
     else:
-        X = adata.X.toarray() if hasattr(adata.X, 'toarray') else adata.X
-        indices = [adata.var_names.get_loc(ch) for ch in barcode_channels]
-        X = X[:, indices]
+        X = adata.X[:, bc_idx]
+        if hasattr(X, 'toarray'):
+            X = X.toarray()
+        X = X.astype(np.float64)
     
-    n_cells = len(adata)
-    patterns_str = adata.obs[assignment_col].values
-    mahal_distances = np.full(n_cells, np.nan)
+    assignments = adata.obs[assignment_col].values.astype(str)
     
-    unique_patterns = np.unique(patterns_str)
-
-    if verbose:
-        print(f"  Computing Mahalanobis distances for {len(unique_patterns)} unique patterns...")
-    
-    patterns_computed = 0
-    patterns_skipped = 0
-    
-    from scipy.spatial.distance import mahalanobis as sp_mahal
-    
-    for pattern_str in unique_patterns:
-        pattern_mask = patterns_str == pattern_str
-        n_pattern_cells = pattern_mask.sum()
-        
-        if n_pattern_cells < min_cells_for_cov:
-            patterns_skipped += 1
-            continue
-        
-        X_pattern = X[pattern_mask, :]
-        
-        try:
-            centroid = X_pattern.mean(axis=0)
-            cov_inv = np.linalg.inv(np.cov(X_pattern.T))
-            distances = np.array([sp_mahal(X_pattern[i], centroid, cov_inv) for i in range(n_pattern_cells)])
-            mahal_distances[pattern_mask] = np.minimum(distances, 30.0)
-            patterns_computed += 1
-        except Exception as e:
-            print(f"    Warning: Could not compute Mahalanobis for pattern {pattern_str[:20]}... ({e})")
-            patterns_skipped += 1
-    
-    if verbose:
-        print(f"  Computed distances for {patterns_computed} patterns, skipped {patterns_skipped}")
-    
-    valid_distances = mahal_distances[~np.isnan(mahal_distances)]
-    
-    if mahal_threshold is None:
-        mahal_threshold = float(np.percentile(valid_distances, 95)) if len(valid_distances) > 0 else 30.0
-        if verbose:
-            print(f"  {'Auto' if len(valid_distances) > 0 else 'Default'} Mahalanobis threshold: {mahal_threshold:.2f}")
-    elif verbose:
-        print(f"  Manual Mahalanobis threshold: {mahal_threshold:.2f}")
-    
-    if confidence_col:
-        confidences = adata.obs[confidence_col].values
-        
-        if confidence_threshold is None:
-            confidence_threshold = float(np.percentile(confidences, 25))
-            if verbose:
-                print(f"  Auto confidence threshold (25th percentile): {confidence_threshold:.4f}")
-        elif verbose:
-            print(f"  Manual confidence threshold: {confidence_threshold:.4f}")
-        
-        fail_mask = ((confidences < confidence_threshold) & (mahal_distances > mahal_threshold)) | np.isnan(mahal_distances)
-    else:
-        confidence_threshold = None
-        fail_mask = (mahal_distances > mahal_threshold) | np.isnan(mahal_distances)
-    
-    pass_mask = ~fail_mask
-    n_pass = pass_mask.sum()
-    pct_pass = 100 * n_pass / n_cells
-
-    if verbose:
-        print(f"  Pass: {n_pass}/{n_cells} cells ({pct_pass:.1f}%)")
-
-    method_name = assignment_col[:assignment_col.rfind('_')]
-    mahal_col = f"{method_name}_mahal_dist"
-    adata.obs[mahal_col] = mahal_distances
-    
-    if filter_or_flag == 'flag':
-        flag_col = f"{method_name}_mahal_pass"
-        adata.obs[flag_col] = pass_mask
-        if verbose:
-            print(f"  [+] Added flag: adata.obs['{flag_col}']")
-            print(f"  [+] Added distance: adata.obs['{mahal_col}']")
-    else:
-        adata = adata[pass_mask].copy()
-        if verbose:
-            print(f"  [+] Filtered to {len(adata)} cells")
-            print(f"  [+] Distance: adata.obs['{mahal_col}']")
-    
-    if 'mahalanobis_filtering' not in adata.uns:
-        adata.uns['mahalanobis_filtering'] = {}
-    
-    adata.uns['mahalanobis_filtering'][filter_name] = {
-        'filter_name': filter_name,
-        'assignment_col': assignment_col,
-        'confidence_col': confidence_col,
-        'layer': layer,
-        'mahal_threshold': float(mahal_threshold),
-        'confidence_threshold': float(confidence_threshold) if confidence_threshold else None,
-        'filter_or_flag': filter_or_flag,
-        'min_cells_for_cov': int(min_cells_for_cov),
-        'n_patterns_computed': int(patterns_computed),
-        'n_patterns_skipped': int(patterns_skipped),
-        'n_pass': int(n_pass),
-        'n_fail': int(n_cells - n_pass),
-        'pct_pass': float(pct_pass),
-        'mahal_dist_col': mahal_col
-    }
-
-    if verbose:
-        print(f"  [+] Filter parameters saved in adata.uns['mahalanobis_filtering']['{filter_name}']")
-    
-    return adata
+    return _compute_mahalanobis_confidence(X, assignments, min_cells=min_cells)

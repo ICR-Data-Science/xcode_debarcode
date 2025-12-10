@@ -62,6 +62,31 @@ def _fit_gmm_channel(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dic
         return None
 
 
+def _compute_mahalanobis_confidence(X: np.ndarray, assignments: np.ndarray, min_cells: int = 5) -> np.ndarray:
+    """Compute Mahalanobis-based confidence from cluster centroids."""
+    n_cells = len(assignments)
+    D = X.shape[1]
+    
+    pattern_stats = {}
+    for pattern in np.unique(assignments):
+        mask = assignments == pattern
+        if mask.sum() >= min_cells:
+            Xp = X[mask]
+            pattern_stats[pattern] = {
+                'centroid': Xp.mean(axis=0),
+                'variance': Xp.var(axis=0) + 1e-3
+            }
+    
+    confidences = np.zeros(n_cells)
+    for i in range(n_cells):
+        pat = assignments[i]
+        if pat in pattern_stats:
+            d2 = ((X[i] - pattern_stats[pat]['centroid']) ** 2 / pattern_stats[pat]['variance']).sum()
+            confidences[i] = 1.0 / (1.0 + d2 / D)
+    
+    return confidences
+
+
 def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
     """PC-GMM: Pattern-Constrained Gaussian Mixture Model."""
     n_cells, n_channels = X.shape
@@ -372,6 +397,7 @@ def debarcode(adata: ad.AnnData,
              n_pca: Optional[int] = None,
              k_selection: str = 'bic',
              method_name: Optional[str] = None,
+             save_raw_score: bool = False,
              inplace: bool = True,
              verbose: bool = True) -> ad.AnnData:
     """Apply debarcoding to assign barcodes to cells.
@@ -413,6 +439,8 @@ def debarcode(adata: ad.AnnData,
     method_name : str, optional
         Custom name for this debarcoding run. If None, uses method name
         and auto-increments if exists (e.g., 'pc_gmm', 'pc_gmm_1').
+    save_raw_score : bool, default False
+        If True, save raw method score to ``adata.obs['{method_name}_score_raw']``.
     inplace : bool, default True
         Modify adata in place.
     verbose : bool, default True
@@ -424,7 +452,8 @@ def debarcode(adata: ad.AnnData,
         Modified AnnData with debarcoding results:
         
         - ``adata.obs['{method_name}_assignment']``: Assigned barcode patterns
-        - ``adata.obs['{method_name}_confidence']``: Confidence scores
+        - ``adata.obs['{method_name}_confidence']``: Mahalanobis-based confidence
+          in [0, 1]. Patterns with <5 cells get confidence 0.
         - ``adata.uns['debarcoding']['{method_name}']``: Method metadata
     
     Examples
@@ -469,11 +498,22 @@ def debarcode(adata: ad.AnnData,
         raise ValueError(f"Unknown method: {method}. Valid options: {list(methods.keys())}")
     
     result = methods[method]()
-    (barcodes, confidences, channel_params), _ = result
+    (barcodes, raw_confidences, channel_params), _ = result
     
-    pattern_strings = [''.join(map(str, b)) for b in barcodes]
+    pattern_strings = np.array([''.join(map(str, b)) for b in barcodes])
+    
+    # Compute Mahalanobis-based confidence using empirical cluster centroids
+    # This provides better calibration than method-specific confidence metrics
+    confidences = _compute_mahalanobis_confidence(X, pattern_strings)
+    
+    if verbose:
+        print(f"  Mahalanobis confidence: mean={confidences.mean():.4f}, range=[{confidences.min():.4f}, {confidences.max():.4f}]")
+    
     adata.obs[f'{final_method_name}_assignment'] = pattern_strings
     adata.obs[f'{final_method_name}_confidence'] = confidences
+    
+    if save_raw_score:
+        adata.obs[f'{final_method_name}_score_raw'] = raw_confidences
 
     if 'debarcoding' not in adata.uns:
         adata.uns['debarcoding'] = {}
@@ -490,6 +530,7 @@ def debarcode(adata: ad.AnnData,
     
     metadata = {
         'method': method,
+        'confidence_method': 'mahalanobis',  # Empirical centroid-based
         'layer': layer,
         'n_init': n_init if method in ['gmm', 'pc_gmm'] else None,
         'min_int': min_int if method in ['gmm', 'pc_gmm'] else None,
@@ -500,6 +541,7 @@ def debarcode(adata: ad.AnnData,
         'n_channels': len(barcode_channels),
         'barcode_channels': barcode_channels,
         'mean_confidence': float(confidences.mean()),
+        'mean_raw_confidence': float(raw_confidences.mean()),
         'channel_params': channel_params
     }
     
@@ -555,7 +597,6 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         hamming_ratio: float = 15.0,
                         hamming_ratio_metric: str = 'count',
                         hamming_tie_break: str = 'lda',
-                        hamming_test_conf: bool = True,
                         hamming_low_conf_perc: Optional[float] = None,
                         # Pattern filtering
                         apply_pattern_filter: bool = True,
@@ -624,8 +665,6 @@ def debarcoding_pipeline(adata: ad.AnnData,
         Ratio metric: 'count' or 'score'.
     hamming_tie_break : str, default 'lda'
         Tie-break method: 'no_remap', 'count', or 'lda'.
-    hamming_test_conf : bool, default True
-        Only remap to higher confidence neighbors.
     hamming_low_conf_perc : float, optional
         Only remap bottom N% confidence cells. Default: None (all).
     apply_pattern_filter : bool, default True
@@ -724,7 +763,6 @@ def debarcoding_pipeline(adata: ad.AnnData,
             ratio=hamming_ratio,
             ratio_metric=hamming_ratio_metric,
             tie_break=hamming_tie_break,
-            test_conf=hamming_test_conf,
             low_conf_perc=hamming_low_conf_perc,
             layer=layer_name,
             verbose=verbose
