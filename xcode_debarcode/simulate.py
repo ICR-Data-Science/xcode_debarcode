@@ -24,7 +24,6 @@ def _compute_gmm_boundary(separation: float, sigma_off: float = 0.5,
     x1 = (-b + np.sqrt(discriminant)) / (2*a)
     x2 = (-b - np.sqrt(discriminant)) / (2*a)
     
-    # Return the boundary between the means
     if 0 < x1 < separation:
         return x1
     elif 0 < x2 < separation:
@@ -54,7 +53,6 @@ def _separation_from_error_rate(target_error: float, sigma_off: float = 0.5,
     def objective(sep):
         return _compute_channel_error_rate(sep, sigma_off, sigma_on) - target_error
     
-    # Check bounds
     min_err = _compute_channel_error_rate(10.0, sigma_off, sigma_on)
     max_err = _compute_channel_error_rate(0.1, sigma_off, sigma_on)
     
@@ -67,21 +65,15 @@ def _separation_from_error_rate(target_error: float, sigma_off: float = 0.5,
 
 
 def _generate_channel_parameters(n_channels: int, rng: np.random.RandomState,
-                                 target_error_rate: Optional[float] = None) -> Dict:
+                                 target_error_rate: float = 0.05) -> Dict:
     """Generate random channel parameters for simulation."""
     params = {}
     
-    if target_error_rate is not None:
-        base_separation = _separation_from_error_rate(target_error_rate)
+    base_separation = _separation_from_error_rate(target_error_rate)
     
     for g in range(n_channels):
         mu_off = rng.uniform(0.7, 1.8)
-        
-        if target_error_rate is not None:
-            # Add variation similar to default range (0.8 spread)
-            separation = max(0.2, base_separation + rng.uniform(-0.4, 0.4))
-        else:
-            separation = rng.uniform(1.0, 1.8)
+        separation = base_separation * rng.uniform(0.7, 1.3)
         
         params[f's_{g+1}'] = {
             'mu_off': mu_off,
@@ -97,7 +89,7 @@ def simulate_cytof_barcodes(
     n_channels: int = 27,
     n_barcodes: Optional[int] = None,
     channel_params: Optional[Dict] = None,
-    target_error_rate: Optional[float] = None,
+    target_error_rate: float = 0.05,
     unbarcoded_fraction: float = 0.00,
     alpha: float = 1.0,
     random_seed: Optional[int] = None,
@@ -118,14 +110,16 @@ def simulate_cytof_barcodes(
         Number of unique barcodes to use. If None, randomly selected.
     channel_params : dict, optional
         Custom channel parameters for simulation. If None, randomly generated.
-    target_error_rate : float, optional
+    target_error_rate : float, default 0.05
         Target mean per-channel error rate (probability of a sample falling
         on the wrong side of the GMM decision boundary). Only used when
         channel_params is None. Separation is calibrated to achieve this
         error rate on average, with per-channel variation.
-        Typical values: 0.01-0.15. Default behavior (~0.05) when None.
+        Typical values: 0.01-0.15.
     unbarcoded_fraction : float, default 0.0
-        Fraction of cells without barcode (in [0, 1)).
+        Fraction of cells without barcode (in [0, 1)). Unbarcoded cells
+        are generated with background-level intensities (mean ~0 in log scale)
+        across all channels.
     alpha : float, default 1.0
         Dirichlet concentration parameter for barcode distribution.
     random_seed : int, optional
@@ -154,7 +148,6 @@ def simulate_cytof_barcodes(
     >>> adata = simulate_cytof_barcodes(n_cells=50000, random_seed=42)
     >>> adata = simulate_cytof_barcodes(target_error_rate=0.10)  # 10% error
     """
-    # Import here to avoid circular dependency
     from .barcode import _generate_4_of_9_patterns
     
     if n_channels % 9 != 0:
@@ -163,7 +156,7 @@ def simulate_cytof_barcodes(
     if not 0 <= unbarcoded_fraction < 1:
         raise ValueError(f"unbarcoded_fraction must be in [0, 1), got {unbarcoded_fraction}")
     
-    if target_error_rate is not None and not 0 < target_error_rate < 0.5:
+    if not 0 < target_error_rate < 0.5:
         raise ValueError(f"target_error_rate must be in (0, 0.5), got {target_error_rate}")
     
     rng = np.random.RandomState(random_seed)
@@ -174,8 +167,7 @@ def simulate_cytof_barcodes(
         print("="*80)
         print(f"\nCells: {n_cells:,}, channels: {n_channels}, Blocks: {n_channels // 9}")
         print(f"Unbarcoded: {unbarcoded_fraction:.1%}, Alpha: {alpha}, Seed: {random_seed}")
-        if target_error_rate is not None:
-            print(f"Target error rate: {target_error_rate:.1%}")
+        print(f"Target error rate: {target_error_rate:.1%}")
     
     if channel_params is None:
         channel_params = _generate_channel_parameters(n_channels, rng, target_error_rate)
@@ -226,7 +218,7 @@ def simulate_cytof_barcodes(
     for i in range(n_barcoded, n_cells):
         for g in range(n_channels):
             params = channel_params[f's_{g+1}']
-            X[i, g] = rng.normal(params['mu_off'], params['sigma_off'] * 1.5)
+            X[i, g] = rng.normal(0.0, params['sigma_off'])
     
     X = np.maximum(np.exp(X) - 1, 0)
     
@@ -274,7 +266,6 @@ def simulate_cytof_barcodes(
     barcode_counts = Counter(ground_truth_labels)
     barcode_counts.pop('unbarcoded', None)
     
-    # Compute actual mean error rate from generated parameters
     actual_error_rates = []
     for g in range(n_channels):
         params = channel_params[f's_{g+1}']
