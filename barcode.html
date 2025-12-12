@@ -1,0 +1,248 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>barcode &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="debarcode" href="debarcode.html" />
+    <link rel="prev" title="Simulation" href="tutorials/simulation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">barcode</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.barcode.get_pattern_statistics"><code class="docutils literal notranslate"><span class="pre">get_pattern_statistics()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.barcode.hamming_distance"><code class="docutils literal notranslate"><span class="pre">hamming_distance()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.barcode.indices_to_pattern"><code class="docutils literal notranslate"><span class="pre">indices_to_pattern()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.barcode.is_valid_pattern"><code class="docutils literal notranslate"><span class="pre">is_valid_pattern()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.barcode.pattern_to_indices"><code class="docutils literal notranslate"><span class="pre">pattern_to_indices()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">barcode</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/barcode.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-xcode_debarcode.barcode">
+<span id="barcode"></span><h1>barcode<a class="headerlink" href="#module-xcode_debarcode.barcode" title="Link to this heading"></a></h1>
+<p>Barcode pattern analysis and validation utilities.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.barcode.get_pattern_statistics">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.barcode.</span></span><span class="sig-name descname"><span class="pre">get_pattern_statistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/barcode.html#get_pattern_statistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.barcode.get_pattern_statistics" title="Link to this definition"></a></dt>
+<dd><p>Compute statistics for debarcoding assignment patterns.</p>
+<p>Analyzes the distribution and validity of barcode patterns from
+debarcoding results.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object with debarcoding results.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column name in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code> containing barcode patterns
+(e.g., <code class="docutils literal notranslate"><span class="pre">'pc_gmm_assignment'</span></code>, <code class="docutils literal notranslate"><span class="pre">'premessa_assignment'</span></code>).</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print summary statistics.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Dictionary with pattern statistics:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">n_cells</span></code>: total number of cells</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_unique_patterns</span></code>: number of unique patterns</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_valid</span></code>: number of cells with valid patterns</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">n_invalid</span></code>: number of cells with invalid patterns</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">pct_valid</span></code>: percentage of cells with valid patterns</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">most_common</span></code>: list of (pattern, count) tuples for top 10</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.barcode.hamming_distance">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.barcode.</span></span><span class="sig-name descname"><span class="pre">hamming_distance</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pattern2</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/barcode.html#hamming_distance"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.barcode.hamming_distance" title="Link to this definition"></a></dt>
+<dd><p>Compute Hamming distance between two patterns.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern1</strong> (<em>str</em><em>, </em><em>list</em><em>, or </em><em>ndarray</em>) – Binary patterns to compare.</p></li>
+<li><p><strong>pattern2</strong> (<em>str</em><em>, </em><em>list</em><em>, or </em><em>ndarray</em>) – Binary patterns to compare.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Number of positions where patterns differ.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.barcode.indices_to_pattern">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.barcode.</span></span><span class="sig-name descname"><span class="pre">indices_to_pattern</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">indices</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">one_based</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/barcode.html#indices_to_pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.barcode.indices_to_pattern" title="Link to this definition"></a></dt>
+<dd><p>Convert list of indices to binary pattern.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>indices</strong> (<em>list</em><em> of </em><em>int</em>) – Indices where pattern should be 1.</p></li>
+<li><p><strong>n_channels</strong> (<em>int</em><em>, </em><em>default 27</em>) – Total number of channels.</p></li>
+<li><p><strong>one_based</strong> (<em>bool</em><em>, </em><em>default True</em>) – Indices are 1-based. If False, assumes 0-based indices.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Binary pattern array.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.barcode.is_valid_pattern">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.barcode.</span></span><span class="sig-name descname"><span class="pre">is_valid_pattern</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/barcode.html#is_valid_pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.barcode.is_valid_pattern" title="Link to this definition"></a></dt>
+<dd><p>Check if pattern is valid (4-4-…-4).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>pattern</strong> (<em>str</em><em>, </em><em>list</em><em>, </em><em>tuple</em><em>, or </em><em>ndarray</em>) – Binary pattern to check.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>True if pattern is valid (all blocks sum to 4).</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.barcode.pattern_to_indices">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.barcode.</span></span><span class="sig-name descname"><span class="pre">pattern_to_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pattern</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">one_based</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/barcode.html#pattern_to_indices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.barcode.pattern_to_indices" title="Link to this definition"></a></dt>
+<dd><p>Convert binary pattern to list of indices where value is 1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pattern</strong> (<em>str</em><em>, </em><em>list</em><em>, </em><em>tuple</em><em>, or </em><em>ndarray</em>) – Binary pattern.</p></li>
+<li><p><strong>one_based</strong> (<em>bool</em><em>, </em><em>default True</em>) – Return 1-based indices. If False, returns 0-based indices.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Indices where pattern is 1.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list of int</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="tutorials/simulation.html" class="btn btn-neutral float-left" title="Simulation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="debarcode.html" class="btn btn-neutral float-right" title="debarcode" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

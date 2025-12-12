@@ -1,0 +1,289 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>postprocessing &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="preprocessing" href="preprocessing.html" />
+    <link rel="prev" title="plots" href="plots.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plots.html">plots</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">postprocessing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.postprocessing.filter_cells_conf"><code class="docutils literal notranslate"><span class="pre">filter_cells_conf()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.postprocessing.filter_pattern"><code class="docutils literal notranslate"><span class="pre">filter_pattern()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.postprocessing.hamming_cluster"><code class="docutils literal notranslate"><span class="pre">hamming_cluster()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.postprocessing.mahal_conf"><code class="docutils literal notranslate"><span class="pre">mahal_conf()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">postprocessing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/postprocessing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-xcode_debarcode.postprocessing">
+<span id="postprocessing"></span><h1>postprocessing<a class="headerlink" href="#module-xcode_debarcode.postprocessing" title="Link to this heading"></a></h1>
+<p>Postprocessing methods for confidence filtering and Hamming clustering.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.postprocessing.filter_cells_conf">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.postprocessing.</span></span><span class="sig-name descname"><span class="pre">filter_cells_conf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">confidence_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'percentile'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">90</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_or_flag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flag'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adaptive_n_init</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/postprocessing.html#filter_cells_conf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.postprocessing.filter_cells_conf" title="Link to this definition"></a></dt>
+<dd><p>Filter cells by confidence score.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object.</p></li>
+<li><p><strong>confidence_col</strong> (<em>str</em>) – Name of confidence column in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code>.</p></li>
+<li><p><strong>method</strong> (<em>{'percentile'</em><em>, </em><em>'threshold'</em><em>, </em><em>'adaptive'}</em><em>, </em><em>default 'percentile'</em>) – <p>Filtering method:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'threshold'</span></code>: keep cells with confidence &gt;= value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'percentile'</span></code>: keep top value% of cells by confidence</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'adaptive'</span></code>: GMM-based automatic threshold</p></li>
+</ul>
+</p></li>
+<li><p><strong>value</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 90</em>) – For <code class="docutils literal notranslate"><span class="pre">'threshold'</span></code>: minimum confidence to pass.
+For <code class="docutils literal notranslate"><span class="pre">'percentile'</span></code>: percentage of top cells to keep.</p></li>
+<li><p><strong>filter_or_flag</strong> (<em>{'flag'</em><em>, </em><em>'filter'}</em><em>, </em><em>default 'flag'</em>) – <code class="docutils literal notranslate"><span class="pre">'flag'</span></code> to add boolean column, <code class="docutils literal notranslate"><span class="pre">'filter'</span></code> to remove cells.</p></li>
+<li><p><strong>adaptive_n_init</strong> (<em>int</em><em>, </em><em>default 5</em>) – GMM initializations for adaptive method.</p></li>
+<li><p><strong>filter_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Custom name for this filtering run. If None, auto-generates unique name.</p></li>
+<li><p><strong>inplace</strong> (<em>bool</em><em>, </em><em>default True</em>) – Modify adata in place.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print progress messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>AnnData with filtering results.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>AnnData</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.postprocessing.filter_pattern">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.postprocessing.</span></span><span class="sig-name descname"><span class="pre">filter_pattern</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">confidence_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'count'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'threshold'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_or_flag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flag'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/postprocessing.html#filter_pattern"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.postprocessing.filter_pattern" title="Link to this definition"></a></dt>
+<dd><p>Filter cells by barcode pattern statistics.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Name of barcode assignment column in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code>.</p></li>
+<li><p><strong>confidence_col</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of confidence column in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code>. Required when metric is
+<code class="docutils literal notranslate"><span class="pre">'median_conf'</span></code> or <code class="docutils literal notranslate"><span class="pre">'score'</span></code>.</p></li>
+<li><p><strong>metric</strong> (<em>{'count'</em><em>, </em><em>'median_conf'</em><em>, </em><em>'score'}</em><em>, </em><em>default 'count'</em>) – <p>Pattern metric:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'count'</span></code>: number of cells per pattern</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'median_conf'</span></code>: median confidence per pattern</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'score'</span></code>: count * median_conf</p></li>
+</ul>
+</p></li>
+<li><p><strong>method</strong> (<em>{'threshold'</em><em>, </em><em>'percentile'}</em><em>, </em><em>default 'threshold'</em>) – <p>Filtering method:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'threshold'</span></code>: keep patterns with metric &gt;= value</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'percentile'</span></code>: keep top value% of patterns by metric</p></li>
+</ul>
+</p></li>
+<li><p><strong>value</strong> (<em>float</em><em>, </em><em>default 10</em>) – For <code class="docutils literal notranslate"><span class="pre">'threshold'</span></code>: minimum metric value to pass.
+For <code class="docutils literal notranslate"><span class="pre">'percentile'</span></code>: percentage of top patterns to keep.</p></li>
+<li><p><strong>filter_or_flag</strong> (<em>{'flag'</em><em>, </em><em>'filter'}</em><em>, </em><em>default 'flag'</em>) – <code class="docutils literal notranslate"><span class="pre">'flag'</span></code> to add boolean column, <code class="docutils literal notranslate"><span class="pre">'filter'</span></code> to remove cells.</p></li>
+<li><p><strong>filter_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Custom name for this filtering run. If None, auto-generates unique name.</p></li>
+<li><p><strong>inplace</strong> (<em>bool</em><em>, </em><em>default True</em>) – Modify adata in place.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print progress messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>AnnData with filtering results.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>AnnData</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.postprocessing.hamming_cluster">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.postprocessing.</span></span><span class="sig-name descname"><span class="pre">hamming_cluster</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">confidence_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'msg'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">15.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ratio_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'count'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tie_break</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'lda'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">low_conf_perc</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_count_center</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">save_results</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/postprocessing.html#hamming_cluster"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.postprocessing.hamming_cluster" title="Link to this definition"></a></dt>
+<dd><p>Apply Hamming clustering to correct barcode assignments.</p>
+<p>Iteratively merges small/low-confidence patterns into larger neighbors.
+Handles both valid patterns (4-of-9 in each block) and invalid patterns
+(which are remapped unconditionally to nearest valid neighbor within radius).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data with debarcoding results.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code> with barcode assignments.</p></li>
+<li><p><strong>confidence_col</strong> (<em>str</em>) – Column in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code> with confidence scores.</p></li>
+<li><p><strong>method</strong> (<em>{'msg'</em><em>, </em><em>'sphere'}</em><em>, </em><em>default 'msg'</em>) – Clustering method: <code class="docutils literal notranslate"><span class="pre">'msg'</span></code> (message passing) or <code class="docutils literal notranslate"><span class="pre">'sphere'</span></code> (local maxima).</p></li>
+<li><p><strong>radius</strong> (<em>int</em><em>, </em><em>default 2</em>) – Max Hamming distance for neighbor search.</p></li>
+<li><p><strong>ratio</strong> (<em>float</em><em>, </em><em>default 15.0</em>) – Minimum ratio for remapping valid patterns.
+Use ~15 for 18ch, ~5 for 27ch or small K.</p></li>
+<li><p><strong>ratio_metric</strong> (<em>{'count'</em><em>, </em><em>'score'}</em><em>, </em><em>default 'count'</em>) – Ratio metric: <code class="docutils literal notranslate"><span class="pre">'count'</span></code> (N_q &gt;= ratio * N_p) or
+<code class="docutils literal notranslate"><span class="pre">'score'</span></code> (count*conf_q &gt;= ratio * count*conf_p).</p></li>
+<li><p><strong>tie_break</strong> (<em>{'no_remap'</em><em>, </em><em>'count'</em><em>, </em><em>'lda'}</em><em>, </em><em>default 'lda'</em>) – Tie-break method when multiple equidistant neighbors pass ratio test.</p></li>
+<li><p><strong>low_conf_perc</strong> (<em>float</em><em>, </em><em>optional</em>) – Only remap bottom N% confidence cells. Default: None (all cells).</p></li>
+<li><p><strong>min_count_center</strong> (<em>int</em><em>, </em><em>default 1</em>) – Minimum count for centers (sphere method only).</p></li>
+<li><p><strong>layer</strong> (<em>str</em><em>, </em><em>default 'log'</em>) – Data layer for LDA tie-breaking.</p></li>
+<li><p><strong>save_results</strong> (<em>bool</em><em>, </em><em>default True</em>) – Save metadata to <code class="docutils literal notranslate"><span class="pre">adata.uns</span></code>.</p></li>
+<li><p><strong>inplace</strong> (<em>bool</em><em>, </em><em>default True</em>) – Modify adata in place.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print progress messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>AnnData with columns added:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{base}_hamming_assignment</span></code>: corrected assignments</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{base}_hamming_confidence</span></code>: Mahalanobis confidence (recomputed)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{base}_hamming_remapped</span></code>: boolean mask of remapped cells</p></li>
+</ul>
+<p>where <code class="docutils literal notranslate"><span class="pre">base</span></code> is <code class="docutils literal notranslate"><span class="pre">assignment_col</span></code> with trailing suffix stripped.</p>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>AnnData</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p><strong>Recommended settings:</strong></p>
+<ul class="simple">
+<li><p>18-channel (2 blocks): Default settings (ratio=15, tie_break=’lda’)</p></li>
+<li><p>27-channel (3 blocks): Lower ratio (ratio=5) due to sparser barcode space</p></li>
+<li><p>Small K (few barcodes): Lower ratio (5-10) as patterns are more isolated</p></li>
+</ul>
+<p>Invalid patterns (not 4-of-9 per block) are always remapped to the nearest
+valid neighbor within radius without ratio tests. Valid patterns are remapped
+only to even-distance valid neighbors that pass the ratio test.</p>
+<p>Mahalanobis confidence is recomputed for all cells after remapping.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.postprocessing.mahal_conf">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.postprocessing.</span></span><span class="sig-name descname"><span class="pre">mahal_conf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/postprocessing.html#mahal_conf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.postprocessing.mahal_conf" title="Link to this definition"></a></dt>
+<dd><p>Compute Mahalanobis-based confidence for pattern assignments.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object with barcode channels in <code class="docutils literal notranslate"><span class="pre">adata.uns['barcode_channels']</span></code>.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column in <code class="docutils literal notranslate"><span class="pre">adata.obs</span></code> containing pattern assignments.</p></li>
+<li><p><strong>layer</strong> (<em>str</em><em>, </em><em>default 'log'</em>) – Layer to use for computing distances.</p></li>
+<li><p><strong>min_cells</strong> (<em>int</em><em>, </em><em>default 5</em>) – Minimum cells per pattern. Patterns with fewer cells get confidence 0.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Confidence scores in [0, 1]. conf = 1/(1 + d²/n_channels) where d² is
+squared Mahalanobis distance.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="plots.html" class="btn btn-neutral float-left" title="plots" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="preprocessing.html" class="btn btn-neutral float-right" title="preprocessing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

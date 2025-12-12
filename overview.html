@@ -1,0 +1,290 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>What is xcode_debarcode? &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Basic Usage" href="tutorials/basic_usage.html" />
+    <link rel="prev" title="Installation" href="installation.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">What is xcode_debarcode?</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#the-x-code-protocol">The X-Code Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#barcode-structure">Barcode Structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#channel-intensity-distribution">Channel Intensity Distribution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#debarcoding">Debarcoding</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#library-structure">Library Structure</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#modules">Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#debarcoding-methods">Debarcoding Methods</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">What is xcode_debarcode?</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/overview.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="what-is-xcode-debarcode">
+<h1>What is xcode_debarcode?<a class="headerlink" href="#what-is-xcode-debarcode" title="Link to this heading"></a></h1>
+<p>xcode_debarcode is a Python library for processing and debarcoding CyTOF data from the X-Code barcoding protocol.</p>
+<section id="the-x-code-protocol">
+<h2>The X-Code Protocol<a class="headerlink" href="#the-x-code-protocol" title="Link to this heading"></a></h2>
+<p>X-Code is a prospective barcoding protocol for tracking cell populations across modalities using combinatorial arrangements of DNA sequences.</p>
+<p>In the CyTOF workflow, each DNA sequence in a barcode is tagged with a distinct heavy metal isotope. Time-of-flight mass spectrometry then measures the intensity of each isotope per cell, allowing barcode inference from the intensity pattern.</p>
+<p>xcode_debarcode handles the processing and debarcoding steps for this data.</p>
+<section id="barcode-structure">
+<h3>Barcode Structure<a class="headerlink" href="#barcode-structure" title="Link to this heading"></a></h3>
+<p>Barcodes use a <strong>4-of-9 encoding scheme</strong> organized in blocks:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Library</p></th>
+<th class="head"><p>Blocks</p></th>
+<th class="head"><p>Channels</p></th>
+<th class="head"><p>Valid Patterns</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>15K</p></td>
+<td><p>2</p></td>
+<td><p>18</p></td>
+<td><p>15,876</p></td>
+</tr>
+<tr class="row-odd"><td><p>2M</p></td>
+<td><p>3</p></td>
+<td><p>27</p></td>
+<td><p>2,000,376</p></td>
+</tr>
+</tbody>
+</table>
+<p>Each block has exactly 4 channels ON (high intensity) and 5 channels OFF (low intensity).</p>
+<p><img alt="Valid Barcode Example" src="_images/valid_bc.png" /></p>
+<p><img alt="Invalid Barcode Example" src="_images/invalid_bc.png" /></p>
+</section>
+<section id="channel-intensity-distribution">
+<h3>Channel Intensity Distribution<a class="headerlink" href="#channel-intensity-distribution" title="Link to this heading"></a></h3>
+<p>After log-transformation, channel intensities are typically bimodal, cells positive for a sequence show high intensity, negative cells show low intensity. The GMM-based methods (GMM, PC-GMM) rely on this bimodality.</p>
+<p><img alt="Channel Intensity Example" src="_images/channel_intensity.png" /></p>
+</section>
+<section id="debarcoding">
+<h3>Debarcoding<a class="headerlink" href="#debarcoding" title="Link to this heading"></a></h3>
+<p>Debarcoding assigns each cell to its sample by:</p>
+<ol class="arabic simple">
+<li><p>Identifying the barcode pattern from channel intensities</p></li>
+<li><p>Validating or enforcing pattern correctness</p></li>
+<li><p>Computing confidence scores</p></li>
+</ol>
+</section>
+</section>
+<section id="library-structure">
+<h2>Library Structure<a class="headerlink" href="#library-structure" title="Link to this heading"></a></h2>
+<p>xcode_debarcode uses <a class="reference external" href="https://anndata.readthedocs.io/">AnnData</a> objects throughout:</p>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Attribute</p></th>
+<th class="head"><p>Contents</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adata.X</span></code></p></td>
+<td><p>Raw intensity matrix (cells × channels)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adata.layers</span></code></p></td>
+<td><p>Transformed data (e.g., ‘log’, ‘arcsinh_cf10.0’)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adata.obs</span></code></p></td>
+<td><p>Cell metadata (assignments, confidence scores)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">adata.var</span></code></p></td>
+<td><p>Channel information</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">adata.uns</span></code></p></td>
+<td><p>Global metadata (barcode channels, method parameters)</p></td>
+</tr>
+</tbody>
+</table>
+<section id="modules">
+<h3>Modules<a class="headerlink" href="#modules" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">io</span></code></p></td>
+<td><p>Read/write FCS and H5AD files, map channel names</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">preprocessing</span></code></p></td>
+<td><p>Log and arcsinh transformations, intensity filtering</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">debarcode</span></code></p></td>
+<td><p>Debarcoding methods (GMM, PreMessa, PC-GMM, Manual)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">postprocessing</span></code></p></td>
+<td><p>Hamming clustering, confidence filtering, Mahalanobis filtering</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">barcode</span></code></p></td>
+<td><p>Pattern validation, Hamming distance, statistics</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">plots</span></code></p></td>
+<td><p>Interactive visualizations (Plotly)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">simulate</span></code></p></td>
+<td><p>Synthetic data generation for testing</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="debarcoding-methods">
+<h3>Debarcoding Methods<a class="headerlink" href="#debarcoding-methods" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Method</p></th>
+<th class="head"><p>Description</p></th>
+<th class="head"><p>Best for</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>PC-GMM</strong></p></td>
+<td><p>Pattern-constrained GMM. Best coverage-accuracy trade-off in most situations.</p></td>
+<td><p>Bimodal regime (recommended)</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>PreMessa</strong></p></td>
+<td><p>Iterative top-4 selection with per-channel normalization.</p></td>
+<td><p>Unimodal regime</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>GMM</strong></p></td>
+<td><p>Per-channel Gaussian mixture models. Assignments not constrained to valid patterns; use for exploration only.</p></td>
+<td><p>Exploring raw signal without validity constraints</p></td>
+</tr>
+<tr class="row-odd"><td><p><strong>Manual</strong></p></td>
+<td><p>User-defined per-channel thresholds.</p></td>
+<td><p>Custom thresholds</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="next-steps">
+<h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading"></a></h2>
+<ul class="simple">
+<li><p><a class="reference internal" href="installation.html"><span class="std std-doc">Installation Guide</span></a></p></li>
+<li><p><a class="reference internal" href="tutorials/basic_usage.html"><span class="std std-doc">Basic Usage Tutorial</span></a></p></li>
+<li><p><a class="reference internal" href="tutorials/method_comparison.html"><span class="std std-doc">Method Comparison</span></a></p></li>
+</ul>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="installation.html" class="btn btn-neutral float-left" title="Installation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="tutorials/basic_usage.html" class="btn btn-neutral float-right" title="Basic Usage" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

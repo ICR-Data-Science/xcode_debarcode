@@ -1,0 +1,226 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>preprocessing &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="simulate" href="simulate.html" />
+    <link rel="prev" title="postprocessing" href="postprocessing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">preprocessing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.preprocessing.filter_cells_intensity"><code class="docutils literal notranslate"><span class="pre">filter_cells_intensity()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.preprocessing.transform"><code class="docutils literal notranslate"><span class="pre">transform()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">preprocessing</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/preprocessing.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-xcode_debarcode.preprocessing">
+<span id="preprocessing"></span><h1>preprocessing<a class="headerlink" href="#module-xcode_debarcode.preprocessing" title="Link to this heading"></a></h1>
+<p>Data preprocessing and transformation for CyTOF data.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.preprocessing.filter_cells_intensity">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.preprocessing.</span></span><span class="sig-name descname"><span class="pre">filter_cells_intensity</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rectangular'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">percentile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">99.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_low</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_high</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">99.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_low</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_high</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">99.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_or_flag</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'flag'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">filter_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/preprocessing.html#filter_cells_intensity"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.preprocessing.filter_cells_intensity" title="Link to this definition"></a></dt>
+<dd><p>Filter cells by barcode channel intensity statistics.</p>
+<p>Removes debris (low sum/variance) and doublets (high sum/variance)
+based on channel sum (L1 norm) and channel variance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object with mapped barcode channels.</p></li>
+<li><p><strong>layer</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default 'log'</em>) – Data layer to use. None for <code class="docutils literal notranslate"><span class="pre">adata.X</span></code>.</p></li>
+<li><p><strong>method</strong> (<em>{'rectangular'</em><em>, </em><em>'ellipsoidal'}</em><em>, </em><em>default 'rectangular'</em>) – <p>Filtering method:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: Independent percentile thresholds on sum and variance.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'ellipsoidal'</span></code>: Mahalanobis distance with robust covariance estimation.</p></li>
+</ul>
+</p></li>
+<li><p><strong>percentile</strong> (<em>float</em><em>, </em><em>default 99.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'ellipsoidal'</span></code> method, keep cells within this percentile of
+Mahalanobis distance.</p></li>
+<li><p><strong>sum_low</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 1.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: lower percentile bound for channel sum.
+Cells below this percentile are removed. Set to None to disable.</p></li>
+<li><p><strong>sum_high</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 99.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: upper percentile bound for channel sum.
+Cells above this percentile are removed. Set to None to disable.</p></li>
+<li><p><strong>var_low</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 1.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: lower percentile bound for channel variance.
+Cells below this percentile are removed. Set to None to disable.</p></li>
+<li><p><strong>var_high</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 99.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: upper percentile bound for channel variance.
+Cells above this percentile are removed. Set to None to disable.</p></li>
+<li><p><strong>filter_or_flag</strong> (<em>{'flag'</em><em>, </em><em>'filter'}</em><em>, </em><em>default 'flag'</em>) – <code class="docutils literal notranslate"><span class="pre">'flag'</span></code> to add boolean column, <code class="docutils literal notranslate"><span class="pre">'filter'</span></code> to remove cells.</p></li>
+<li><p><strong>filter_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Custom name for this filtering run. Default: auto-generated.</p></li>
+<li><p><strong>inplace</strong> (<em>bool</em><em>, </em><em>default True</em>) – Modify adata in place.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print progress messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>AnnData with filtering results.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>AnnData</p>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>For rectangular method:</p>
+<ul class="simple">
+<li><p>sum_low=1, sum_high=99 removes bottom 1% and top 1% by channel sum</p></li>
+<li><p>var_low=1, var_high=99 removes bottom 1% and top 1% by variance</p></li>
+</ul>
+<p>For ellipsoidal method:</p>
+<ul class="simple">
+<li><p>Uses Minimum Covariance Determinant for robust covariance estimation</p></li>
+<li><p>Filters based on Mahalanobis distance in (sum, variance) space</p></li>
+<li><p>Better handles correlated sum/variance and non-axis-aligned outliers</p></li>
+</ul>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.preprocessing.transform">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.preprocessing.</span></span><span class="sig-name descname"><span class="pre">transform</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cofactor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">inplace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/preprocessing.html#transform"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.preprocessing.transform" title="Link to this definition"></a></dt>
+<dd><p>Apply transformation to intensity data.</p>
+<p>Creates a new layer in adata with transformed values. The transformation
+is applied to ALL channels (barcode and non-barcode), but the function
+tracks which channels are barcode channels using <code class="docutils literal notranslate"><span class="pre">adata.uns['barcode_channels']</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object (should have barcode channels mapped via <code class="docutils literal notranslate"><span class="pre">map_channels</span></code>).</p></li>
+<li><p><strong>method</strong> (<em>{'log'</em><em>, </em><em>'arcsinh'}</em><em>, </em><em>default 'log'</em>) – <p>Transformation method:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">'arcsinh'</span></code>: inverse hyperbolic sine, arcsinh(x/cofactor)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'log'</span></code>: natural logarithm, log(x + 1)</p></li>
+</ul>
+</p></li>
+<li><p><strong>cofactor</strong> (<em>float</em><em>, </em><em>default 10.0</em>) – Cofactor for arcsinh transformation.</p></li>
+<li><p><strong>layer_name</strong> (<em>str</em><em>, </em><em>optional</em>) – Name for the transformed layer. If None, auto-generates:
+<code class="docutils literal notranslate"><span class="pre">'arcsinh_cf{cofactor}'</span></code> for arcsinh, <code class="docutils literal notranslate"><span class="pre">'log'</span></code> for log.</p></li>
+<li><p><strong>inplace</strong> (<em>bool</em><em>, </em><em>default True</em>) – Modify adata in place.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print progress messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Modified AnnData with new layer containing transformed data:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adata.layers[layer_name]</span></code>: transformed data for all channels</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adata.uns['transformations'][layer_name]</span></code>: transformation metadata</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>AnnData</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="postprocessing.html" class="btn btn-neutral float-left" title="postprocessing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="simulate.html" class="btn btn-neutral float-right" title="simulate" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

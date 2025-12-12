@@ -1,0 +1,287 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>plots &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="postprocessing" href="postprocessing.html" />
+    <link rel="prev" title="io" href="io.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">io</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">plots</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.plots.plot_barcode_rank_histogram"><code class="docutils literal notranslate"><span class="pre">plot_barcode_rank_histogram()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.plots.plot_channel_intensities"><code class="docutils literal notranslate"><span class="pre">plot_channel_intensities()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.plots.plot_hamming_graph"><code class="docutils literal notranslate"><span class="pre">plot_hamming_graph()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.plots.plot_hamming_heatmap"><code class="docutils literal notranslate"><span class="pre">plot_hamming_heatmap()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.plots.plot_intensity_scatter"><code class="docutils literal notranslate"><span class="pre">plot_intensity_scatter()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">plots</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/plots.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-xcode_debarcode.plots">
+<span id="plots"></span><h1>plots<a class="headerlink" href="#module-xcode_debarcode.plots" title="Link to this heading"></a></h1>
+<p>Interactive visualization functions for debarcoding analysis.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.plots.plot_barcode_rank_histogram">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.plots.</span></span><span class="sig-name descname"><span class="pre">plot_barcode_rank_histogram</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">confidence_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'count'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">top_n</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">20</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_metric</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/plots.html#plot_barcode_rank_histogram"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.plots.plot_barcode_rank_histogram" title="Link to this definition"></a></dt>
+<dd><p>Plot rank histogram of top barcode patterns.</p>
+<p>Shows the most frequent barcode patterns as a ranked bar chart.
+Valid patterns shown in blue, invalid patterns in grey.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column name with barcode assignments (string patterns).</p></li>
+<li><p><strong>confidence_col</strong> (<em>str</em><em>, </em><em>optional</em>) – Column name with confidence scores. Required for <code class="docutils literal notranslate"><span class="pre">metric='median_conf'</span></code>
+or <code class="docutils literal notranslate"><span class="pre">'score'</span></code>.</p></li>
+<li><p><strong>metric</strong> (<em>{'count'</em><em>, </em><em>'median_conf'</em><em>, </em><em>'score'}</em><em>, </em><em>default 'count'</em>) – Metric to rank and display.</p></li>
+<li><p><strong>top_n</strong> (<em>int</em><em>, </em><em>default 20</em>) – Number of top patterns to show.</p></li>
+<li><p><strong>min_metric</strong> (<em>float</em><em>, </em><em>default 0</em>) – Minimum metric value to include pattern.</p></li>
+<li><p><strong>valid_only</strong> (<em>bool</em><em>, </em><em>default False</em>) – Only show valid patterns.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive Plotly bar chart.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.plots.plot_channel_intensities">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.plots.</span></span><span class="sig-name descname"><span class="pre">plot_channel_intensities</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">show_method_data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_scale_x</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">log_scale_y</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bins</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">250</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xlim_percentile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(0.1,</span> <span class="pre">99.9)</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/plots.html#plot_channel_intensities"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.plots.plot_channel_intensities" title="Link to this definition"></a></dt>
+<dd><p>Plot interactive channel intensity distributions.</p>
+<p>Creates interactive histograms for barcode channel intensities.
+Can overlay learned parameters from debarcoding methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object.</p></li>
+<li><p><strong>channels</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – Specific channels to visualize. If None, shows all barcode channels.</p></li>
+<li><p><strong>layer</strong> (<em>str</em><em>, </em><em>optional</em>) – Layer to use for visualization. If None, uses <code class="docutils literal notranslate"><span class="pre">.X</span></code> (raw data).
+If using a transformed layer (e.g., <code class="docutils literal notranslate"><span class="pre">'log'</span></code>, <code class="docutils literal notranslate"><span class="pre">'arcsinh_cf5'</span></code>),
+set <code class="docutils literal notranslate"><span class="pre">log_scale_x=False</span></code> since data is already transformed.</p></li>
+<li><p><strong>show_method_data</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of debarcoding result from <code class="docutils literal notranslate"><span class="pre">adata.uns['debarcoding']</span></code> to visualize.
+Shows overlays based on the method (GMM means, thresholds, etc.).</p></li>
+<li><p><strong>log_scale_x</strong> (<em>bool</em><em>, </em><em>default True</em>) – Use log scale for x-axis. Set to False when using transformed layers.</p></li>
+<li><p><strong>log_scale_y</strong> (<em>bool</em><em>, </em><em>default False</em>) – Use log scale for y-axis.</p></li>
+<li><p><strong>bins</strong> (<em>int</em><em>, </em><em>default 250</em>) – Number of histogram bins.</p></li>
+<li><p><strong>xlim</strong> (<em>tuple</em><em>, </em><em>optional</em>) – X-axis limits as <code class="docutils literal notranslate"><span class="pre">(xmin,</span> <span class="pre">xmax)</span></code>. Supports partial specification
+with None for automatic limits.</p></li>
+<li><p><strong>xlim_percentile</strong> (<em>tuple</em><em>, </em><em>default</em><em> (</em><em>0.1</em><em>, </em><em>99.9</em><em>)</em>) – Percentile range for automatic limits.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive Plotly figure with channel histograms.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.plots.plot_hamming_graph">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.plots.</span></span><span class="sig-name descname"><span class="pre">plot_hamming_graph</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">confidence_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layout</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'spring'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_size_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">5.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">node_size_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">200.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_transform</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'sqrt'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/plots.html#plot_hamming_graph"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.plots.plot_hamming_graph" title="Link to this definition"></a></dt>
+<dd><p>Plot interactive Hamming graph of barcode patterns.</p>
+<p>Creates an interactive network visualization showing barcode patterns
+connected by Hamming distance. Node size represents pattern frequency,
+color represents confidence or validity.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column name with barcode assignments (string patterns).</p></li>
+<li><p><strong>confidence_col</strong> (<em>str</em><em>, </em><em>optional</em>) – Column name with confidence scores. If provided, colors nodes by
+mean confidence. If None, colors by validity (green=valid, red=invalid).</p></li>
+<li><p><strong>radius</strong> (<em>int</em><em>, </em><em>default 2</em>) – Exact Hamming distance for edges.</p></li>
+<li><p><strong>min_count</strong> (<em>int</em><em>, </em><em>default 50</em>) – Minimum count for patterns to include.</p></li>
+<li><p><strong>valid_only</strong> (<em>bool</em><em>, </em><em>default True</em>) – Only show valid patterns.</p></li>
+<li><p><strong>layout</strong> (<em>{'spring'</em><em>, </em><em>'circular'</em><em>, </em><em>'kamada_kawai'}</em><em>, </em><em>default 'spring'</em>) – Layout algorithm.</p></li>
+<li><p><strong>node_size_min</strong> (<em>float</em><em>, </em><em>default 5.0</em>) – Minimum node size.</p></li>
+<li><p><strong>node_size_max</strong> (<em>float</em><em>, </em><em>default 200.0</em>) – Maximum node size.</p></li>
+<li><p><strong>size_transform</strong> (<em>{'sqrt'</em><em>, </em><em>'log'</em><em>, </em><em>'linear'}</em><em>, </em><em>default 'sqrt'</em>) – Size transformation for node counts.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive Plotly network graph.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.plots.plot_hamming_heatmap">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.plots.</span></span><span class="sig-name descname"><span class="pre">plot_hamming_heatmap</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hamming_radius</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">valid_only</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cluster_patterns</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_rank_labels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/plots.html#plot_hamming_heatmap"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.plots.plot_hamming_heatmap" title="Link to this definition"></a></dt>
+<dd><p>Plot Hamming distance heatmap for barcode patterns.</p>
+<p>Creates a heatmap showing pairwise Hamming distances between patterns.
+Patterns can be clustered to group similar patterns together.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column name with barcode assignments (string patterns).</p></li>
+<li><p><strong>hamming_radius</strong> (<em>int</em><em>, </em><em>default 2</em>) – Maximum Hamming distance to display. Distances &gt; radius shown as white.</p></li>
+<li><p><strong>valid_only</strong> (<em>bool</em><em>, </em><em>default True</em>) – Only show valid patterns.</p></li>
+<li><p><strong>min_count</strong> (<em>int</em><em>, </em><em>default 50</em>) – Minimum count for patterns to include.</p></li>
+<li><p><strong>cluster_patterns</strong> (<em>bool</em><em>, </em><em>default True</em>) – Cluster patterns by Hamming distance.</p></li>
+<li><p><strong>use_rank_labels</strong> (<em>bool</em><em>, </em><em>default True</em>) – Use rank numbers (#1, #2, …) instead of full pattern on axes.
+Makes heatmap more readable with many patterns.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive Plotly heatmap.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.plots.plot_intensity_scatter">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.plots.</span></span><span class="sig-name descname"><span class="pre">plot_intensity_scatter</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">layer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'log'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">percentile</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">99.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_low</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_high</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">99.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_low</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_high</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">99.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">subsample</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/plots.html#plot_intensity_scatter"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.plots.plot_intensity_scatter" title="Link to this definition"></a></dt>
+<dd><p>Plot channel sum vs variance scatter with optional filter preview.</p>
+<p>Helps visualize cell distribution and preview intensity filtering
+before applying it.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – Annotated data object with mapped barcode channels.</p></li>
+<li><p><strong>layer</strong> (<em>str</em><em>, </em><em>optional</em><em>, </em><em>default 'log'</em>) – Data layer to use. None for <code class="docutils literal notranslate"><span class="pre">adata.X</span></code>.</p></li>
+<li><p><strong>method</strong> (<em>{'rectangular'</em><em>, </em><em>'ellipsoidal'}</em><em>, </em><em>optional</em>) – Filter method to preview. If None, shows raw scatter without filtering.</p></li>
+<li><p><strong>percentile</strong> (<em>float</em><em>, </em><em>default 99.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'ellipsoidal'</span></code> method, percentile threshold.</p></li>
+<li><p><strong>sum_low</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 1.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: lower percentile bound for channel sum.</p></li>
+<li><p><strong>sum_high</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 99.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: upper percentile bound for channel sum.</p></li>
+<li><p><strong>var_low</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 1.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: lower percentile bound for channel variance.</p></li>
+<li><p><strong>var_high</strong> (<em>float</em><em>, </em><em>optional</em><em>, </em><em>default 99.0</em>) – For <code class="docutils literal notranslate"><span class="pre">'rectangular'</span></code>: upper percentile bound for channel variance.</p></li>
+<li><p><strong>subsample</strong> (<em>int</em><em>, </em><em>optional</em><em>, </em><em>default 50000</em>) – Max cells to plot (for performance). None for all.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive Plotly scatter plot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Figure</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="io.html" class="btn btn-neutral float-left" title="io" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="postprocessing.html" class="btn btn-neutral float-right" title="postprocessing" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

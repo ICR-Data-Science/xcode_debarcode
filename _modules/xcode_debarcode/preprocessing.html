@@ -1,0 +1,460 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xcode_debarcode.preprocessing &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">xcode_debarcode.preprocessing</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for xcode_debarcode.preprocessing</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Data preprocessing and transformation for CyTOF data.&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">anndata</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ad</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="s2">&quot;filter_cells_intensity&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="transform">
+<a class="viewcode-back" href="../../preprocessing.html#xcode_debarcode.preprocessing.transform">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>
+             <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;log&#39;</span><span class="p">,</span>
+             <span class="n">cofactor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span>
+             <span class="n">layer_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+             <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+             <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply transformation to intensity data.</span>
+<span class="sd">    </span>
+<span class="sd">    Creates a new layer in adata with transformed values. The transformation</span>
+<span class="sd">    is applied to ALL channels (barcode and non-barcode), but the function</span>
+<span class="sd">    tracks which channels are barcode channels using ``adata.uns[&#39;barcode_channels&#39;]``.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data object (should have barcode channels mapped via ``map_channels``).</span>
+<span class="sd">    method : {&#39;log&#39;, &#39;arcsinh&#39;}, default &#39;log&#39;</span>
+<span class="sd">        Transformation method:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``&#39;arcsinh&#39;``: inverse hyperbolic sine, arcsinh(x/cofactor)</span>
+<span class="sd">        - ``&#39;log&#39;``: natural logarithm, log(x + 1)</span>
+<span class="sd">    cofactor : float, default 10.0</span>
+<span class="sd">        Cofactor for arcsinh transformation.</span>
+<span class="sd">    layer_name : str, optional</span>
+<span class="sd">        Name for the transformed layer. If None, auto-generates:</span>
+<span class="sd">        ``&#39;arcsinh_cf{cofactor}&#39;`` for arcsinh, ``&#39;log&#39;`` for log.</span>
+<span class="sd">    inplace : bool, default True</span>
+<span class="sd">        Modify adata in place.</span>
+<span class="sd">    verbose : bool, default True</span>
+<span class="sd">        Print progress messages.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AnnData</span>
+<span class="sd">        Modified AnnData with new layer containing transformed data:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``adata.layers[layer_name]``: transformed data for all channels</span>
+<span class="sd">        - ``adata.uns[&#39;transformations&#39;][layer_name]``: transformation metadata</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Check transform</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;arcsinh&#39;</span><span class="p">,</span> <span class="s1">&#39;log&#39;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Unknown transformation method: &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;. &quot;</span>
+            <span class="s2">&quot;Valid options: &#39;arcsinh&#39;, &#39;log&#39;&quot;</span>
+        <span class="p">)</span>
+    
+    <span class="c1"># Determine layer name</span>
+    <span class="k">if</span> <span class="n">layer_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;arcsinh&#39;</span><span class="p">:</span>
+            <span class="n">layer_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;arcsinh_cf</span><span class="si">{</span><span class="n">cofactor</span><span class="si">}</span><span class="s1">&#39;</span>
+        <span class="k">else</span><span class="p">:</span>  
+            <span class="n">layer_name</span> <span class="o">=</span> <span class="s1">&#39;log&#39;</span>
+    
+    <span class="n">barcode_channels</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="s1">&#39;barcode_channels&#39;</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="n">barcode_channels</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;barcode_channels&#39;</span><span class="p">]</span>
+    
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="s1">&#39;toarray&#39;</span><span class="p">):</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Apply transformation to all channels</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;arcsinh&#39;</span><span class="p">:</span>
+        <span class="n">X_transformed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arcsinh</span><span class="p">(</span><span class="n">X</span> <span class="o">/</span> <span class="n">cofactor</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;log&#39;</span><span class="p">:</span>
+        <span class="n">X_transformed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">X</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">layer_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">X_transformed</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;transformations&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;transformations&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;transformations&#39;</span><span class="p">][</span><span class="n">layer_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+        <span class="s1">&#39;cofactor&#39;</span><span class="p">:</span> <span class="n">cofactor</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;arcsinh&#39;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="s1">&#39;n_channels&#39;</span><span class="p">:</span> <span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="p">,</span>
+        <span class="s1">&#39;n_cells&#39;</span><span class="p">:</span> <span class="n">adata</span><span class="o">.</span><span class="n">n_obs</span><span class="p">,</span>
+        <span class="s1">&#39;all_channels&#39;</span><span class="p">:</span> <span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;barcode_channels&#39;</span><span class="p">:</span> <span class="n">barcode_channels</span><span class="p">,</span>
+        <span class="s1">&#39;n_barcode_channels&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">barcode_channels</span><span class="p">)</span> <span class="k">if</span> <span class="n">barcode_channels</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Transformation complete&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Method: </span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;arcsinh&#39;</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Cofactor: </span><span class="si">{</span><span class="n">cofactor</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Layer: &#39;</span><span class="si">{</span><span class="n">layer_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Transformed: </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="si">}</span><span class="s2"> channels x </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">n_obs</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">barcode_channels</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Barcode channels: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">barcode_channels</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Warning: Barcode channels not set. Run map_channels() first.&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+<div class="viewcode-block" id="filter_cells_intensity">
+<a class="viewcode-back" href="../../preprocessing.html#xcode_debarcode.preprocessing.filter_cells_intensity">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">filter_cells_intensity</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>
+                           <span class="n">layer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;log&#39;</span><span class="p">,</span>
+                           <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;rectangular&#39;</span><span class="p">,</span>
+                           <span class="n">percentile</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">99.0</span><span class="p">,</span>
+                           <span class="n">sum_low</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+                           <span class="n">sum_high</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">99.0</span><span class="p">,</span>
+                           <span class="n">var_low</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
+                           <span class="n">var_high</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mf">99.0</span><span class="p">,</span>
+                           <span class="n">filter_or_flag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;flag&#39;</span><span class="p">,</span>
+                           <span class="n">filter_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                           <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                           <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Filter cells by barcode channel intensity statistics.</span>
+<span class="sd">    </span>
+<span class="sd">    Removes debris (low sum/variance) and doublets (high sum/variance)</span>
+<span class="sd">    based on channel sum (L1 norm) and channel variance.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data object with mapped barcode channels.</span>
+<span class="sd">    layer : str, optional, default &#39;log&#39;</span>
+<span class="sd">        Data layer to use. None for ``adata.X``.</span>
+<span class="sd">    method : {&#39;rectangular&#39;, &#39;ellipsoidal&#39;}, default &#39;rectangular&#39;</span>
+<span class="sd">        Filtering method:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``&#39;rectangular&#39;``: Independent percentile thresholds on sum and variance.</span>
+<span class="sd">        - ``&#39;ellipsoidal&#39;``: Mahalanobis distance with robust covariance estimation.</span>
+<span class="sd">    percentile : float, default 99.0</span>
+<span class="sd">        For ``&#39;ellipsoidal&#39;`` method, keep cells within this percentile of</span>
+<span class="sd">        Mahalanobis distance.</span>
+<span class="sd">    sum_low : float, optional, default 1.0</span>
+<span class="sd">        For ``&#39;rectangular&#39;``: lower percentile bound for channel sum.</span>
+<span class="sd">        Cells below this percentile are removed. Set to None to disable.</span>
+<span class="sd">    sum_high : float, optional, default 99.0</span>
+<span class="sd">        For ``&#39;rectangular&#39;``: upper percentile bound for channel sum.</span>
+<span class="sd">        Cells above this percentile are removed. Set to None to disable.</span>
+<span class="sd">    var_low : float, optional, default 1.0</span>
+<span class="sd">        For ``&#39;rectangular&#39;``: lower percentile bound for channel variance.</span>
+<span class="sd">        Cells below this percentile are removed. Set to None to disable.</span>
+<span class="sd">    var_high : float, optional, default 99.0</span>
+<span class="sd">        For ``&#39;rectangular&#39;``: upper percentile bound for channel variance.</span>
+<span class="sd">        Cells above this percentile are removed. Set to None to disable.</span>
+<span class="sd">    filter_or_flag : {&#39;flag&#39;, &#39;filter&#39;}, default &#39;flag&#39;</span>
+<span class="sd">        ``&#39;flag&#39;`` to add boolean column, ``&#39;filter&#39;`` to remove cells.</span>
+<span class="sd">    filter_name : str, optional</span>
+<span class="sd">        Custom name for this filtering run. Default: auto-generated.</span>
+<span class="sd">    inplace : bool, default True</span>
+<span class="sd">        Modify adata in place.</span>
+<span class="sd">    verbose : bool, default True</span>
+<span class="sd">        Print progress messages.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AnnData</span>
+<span class="sd">        AnnData with filtering results.</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    For rectangular method:</span>
+<span class="sd">    </span>
+<span class="sd">    - sum_low=1, sum_high=99 removes bottom 1% and top 1% by channel sum</span>
+<span class="sd">    - var_low=1, var_high=99 removes bottom 1% and top 1% by variance</span>
+<span class="sd">    </span>
+<span class="sd">    For ellipsoidal method:</span>
+<span class="sd">    </span>
+<span class="sd">    - Uses Minimum Covariance Determinant for robust covariance estimation</span>
+<span class="sd">    - Filters based on Mahalanobis distance in (sum, variance) space</span>
+<span class="sd">    - Better handles correlated sum/variance and non-axis-aligned outliers</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;rectangular&#39;</span><span class="p">,</span> <span class="s1">&#39;ellipsoidal&#39;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;rectangular&#39; or &#39;ellipsoidal&#39;, got </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">filter_or_flag</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;flag&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;filter_or_flag must be &#39;flag&#39; or &#39;filter&#39;, got </span><span class="si">{</span><span class="n">filter_or_flag</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="s1">&#39;barcode_channels&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Barcode channels not mapped. Run map_channels first.&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Get barcode channel data</span>
+    <span class="n">bc_channels</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;barcode_channels&#39;</span><span class="p">]</span>
+    <span class="n">bc_idx</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">bc_channels</span><span class="p">]</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">][:,</span> <span class="n">bc_idx</span><span class="p">]</span> <span class="k">if</span> <span class="n">layer</span> <span class="k">else</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">[:,</span> <span class="n">bc_idx</span><span class="p">]</span>
+    
+    <span class="c1"># Compute statistics</span>
+    <span class="n">channel_sum</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">X</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">channel_var</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Intensity filtering: method=</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">, layer=</span><span class="si">{</span><span class="n">layer</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Channel sum: min=</span><span class="si">{</span><span class="n">channel_sum</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, max=</span><span class="si">{</span><span class="n">channel_sum</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;mean=</span><span class="si">{</span><span class="n">channel_sum</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Channel var: min=</span><span class="si">{</span><span class="n">channel_var</span><span class="o">.</span><span class="n">min</span><span class="p">()</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, max=</span><span class="si">{</span><span class="n">channel_var</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;mean=</span><span class="si">{</span><span class="n">channel_var</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;rectangular&#39;</span><span class="p">:</span>
+        <span class="n">thresholds</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;sum_low&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">channel_sum</span><span class="p">,</span> <span class="n">sum_low</span><span class="p">)</span> <span class="k">if</span> <span class="n">sum_low</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;sum_high&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">channel_sum</span><span class="p">,</span> <span class="n">sum_high</span><span class="p">)</span> <span class="k">if</span> <span class="n">sum_high</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;var_low&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">channel_var</span><span class="p">,</span> <span class="n">var_low</span><span class="p">)</span> <span class="k">if</span> <span class="n">var_low</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;var_high&#39;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">channel_var</span><span class="p">,</span> <span class="n">var_high</span><span class="p">)</span> <span class="k">if</span> <span class="n">var_high</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">}</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_low&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_high&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">sum_low_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_low&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_low&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
+                <span class="n">sum_high_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_high&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_high&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Sum thresholds: [</span><span class="si">{</span><span class="n">sum_low_str</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">sum_high_str</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_low&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_high&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">var_low_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_low&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_low&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
+                <span class="n">var_high_str</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_high&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_high&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;None&quot;</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Var thresholds: [</span><span class="si">{</span><span class="n">var_low_str</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">var_high_str</span><span class="si">}</span><span class="s2">]&quot;</span><span class="p">)</span>
+        
+        <span class="n">pass_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_low&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">channel_sum</span> <span class="o">&gt;=</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_low&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Sum low: </span><span class="si">{</span><span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> cells removed&quot;</span><span class="p">)</span>
+            <span class="n">pass_mask</span> <span class="o">&amp;=</span> <span class="n">mask</span>
+        
+        <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_high&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">channel_sum</span> <span class="o">&lt;=</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;sum_high&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Sum high: </span><span class="si">{</span><span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> cells removed&quot;</span><span class="p">)</span>
+            <span class="n">pass_mask</span> <span class="o">&amp;=</span> <span class="n">mask</span>
+        
+        <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_low&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">channel_var</span> <span class="o">&gt;=</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_low&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Var low: </span><span class="si">{</span><span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> cells removed&quot;</span><span class="p">)</span>
+            <span class="n">pass_mask</span> <span class="o">&amp;=</span> <span class="n">mask</span>
+        
+        <span class="k">if</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_high&#39;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">channel_var</span> <span class="o">&lt;=</span> <span class="n">thresholds</span><span class="p">[</span><span class="s1">&#39;var_high&#39;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">verbose</span> <span class="ow">and</span> <span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Var high: </span><span class="si">{</span><span class="p">(</span><span class="o">~</span><span class="n">mask</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span><span class="si">}</span><span class="s2"> cells removed&quot;</span><span class="p">)</span>
+            <span class="n">pass_mask</span> <span class="o">&amp;=</span> <span class="n">mask</span>
+        
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;layer&#39;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span>
+            <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+            <span class="s1">&#39;sum_low&#39;</span><span class="p">:</span> <span class="n">sum_low</span><span class="p">,</span>
+            <span class="s1">&#39;sum_high&#39;</span><span class="p">:</span> <span class="n">sum_high</span><span class="p">,</span>
+            <span class="s1">&#39;var_low&#39;</span><span class="p">:</span> <span class="n">var_low</span><span class="p">,</span>
+            <span class="s1">&#39;var_high&#39;</span><span class="p">:</span> <span class="n">var_high</span><span class="p">,</span>
+            <span class="s1">&#39;thresholds&#39;</span><span class="p">:</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">thresholds</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+        <span class="p">}</span>
+    
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># ellipsoidal</span>
+        <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.covariance</span><span class="w"> </span><span class="kn">import</span> <span class="n">MinCovDet</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Using robust Mahalanobis distance (percentile=</span><span class="si">{</span><span class="n">percentile</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Robust covariance estimation</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">channel_sum</span><span class="p">,</span> <span class="n">channel_var</span><span class="p">])</span>
+        <span class="n">mcd</span> <span class="o">=</span> <span class="n">MinCovDet</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span> <span class="n">support_fraction</span><span class="o">=</span><span class="mf">0.75</span><span class="p">)</span>
+        <span class="n">mcd</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+        
+        <span class="n">mahal_dist</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">mcd</span><span class="o">.</span><span class="n">mahalanobis</span><span class="p">(</span><span class="n">data</span><span class="p">))</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">mahal_dist</span><span class="p">,</span> <span class="n">percentile</span><span class="p">)</span>
+        <span class="n">pass_mask</span> <span class="o">=</span> <span class="n">mahal_dist</span> <span class="o">&lt;=</span> <span class="n">threshold</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Mahalanobis threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Center: sum=</span><span class="si">{</span><span class="n">mcd</span><span class="o">.</span><span class="n">location_</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, var=</span><span class="si">{</span><span class="n">mcd</span><span class="o">.</span><span class="n">location_</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;layer&#39;</span><span class="p">:</span> <span class="n">layer</span><span class="p">,</span>
+            <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+            <span class="s1">&#39;percentile&#39;</span><span class="p">:</span> <span class="n">percentile</span><span class="p">,</span>
+            <span class="s1">&#39;mahal_threshold&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span><span class="p">),</span>
+            <span class="s1">&#39;center&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;sum&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">mcd</span><span class="o">.</span><span class="n">location_</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span> <span class="s1">&#39;var&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">mcd</span><span class="o">.</span><span class="n">location_</span><span class="p">[</span><span class="mi">1</span><span class="p">])},</span>
+        <span class="p">}</span>
+    
+    <span class="n">n_pass</span> <span class="o">=</span> <span class="n">pass_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+    <span class="n">pct_pass</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">n_pass</span> <span class="o">/</span> <span class="n">n_total</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Pass: </span><span class="si">{</span><span class="n">n_pass</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2"> cells (</span><span class="si">{</span><span class="n">pct_pass</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">filter_or_flag</span> <span class="o">==</span> <span class="s1">&#39;flag&#39;</span><span class="p">:</span>
+        <span class="n">base_flag_col</span> <span class="o">=</span> <span class="s2">&quot;intensity_pass&quot;</span>
+        
+        <span class="n">flag_col</span> <span class="o">=</span> <span class="n">base_flag_col</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="n">flag_col</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">flag_col</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_flag_col</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        
+        <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">flag_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pass_mask</span>
+        
+        <span class="k">if</span> <span class="n">filter_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filter_name</span> <span class="o">=</span> <span class="n">flag_col</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Added flag column: adata.obs[&#39;</span><span class="si">{</span><span class="n">flag_col</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">pass_mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">filter_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filter_name</span> <span class="o">=</span> <span class="s2">&quot;intensity&quot;</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Filtered to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;intensity_filtering&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;intensity_filtering&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="n">metadata</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+        <span class="s1">&#39;filter_or_flag&#39;</span><span class="p">:</span> <span class="n">filter_or_flag</span><span class="p">,</span>
+        <span class="s1">&#39;n_pass&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_pass</span><span class="p">),</span>
+        <span class="s1">&#39;n_total&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_total</span><span class="p">),</span>
+        <span class="s1">&#39;pct_pass&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct_pass</span><span class="p">),</span>
+    <span class="p">})</span>
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;intensity_filtering&#39;</span><span class="p">][</span><span class="n">filter_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Metadata saved: adata.uns[&#39;intensity_filtering&#39;][&#39;</span><span class="si">{</span><span class="n">filter_name</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

@@ -1,0 +1,79 @@
+# What is xcode_debarcode?
+
+xcode_debarcode is a Python library for processing and debarcoding CyTOF data from the X-Code barcoding protocol.
+
+## The X-Code Protocol
+
+X-Code is a prospective barcoding protocol for tracking cell populations across modalities using combinatorial arrangements of DNA sequences.
+
+In the CyTOF workflow, each DNA sequence in a barcode is tagged with a distinct heavy metal isotope. Time-of-flight mass spectrometry then measures the intensity of each isotope per cell, allowing barcode inference from the intensity pattern.
+
+xcode_debarcode handles the processing and debarcoding steps for this data.
+
+### Barcode Structure
+
+Barcodes use a **4-of-9 encoding scheme** organized in blocks:
+
+| Library | Blocks | Channels | Valid Patterns |
+|---------|--------|----------|----------------|
+| 15K     | 2      | 18       | 15,876         |
+| 2M      | 3      | 27       | 2,000,376    |
+
+Each block has exactly 4 channels ON (high intensity) and 5 channels OFF (low intensity).
+
+![Valid Barcode Example](_static/figures/valid_bc.png)
+
+![Invalid Barcode Example](_static/figures/invalid_bc.png)
+
+### Channel Intensity Distribution
+
+After log-transformation, channel intensities are typically bimodal, cells positive for a sequence show high intensity, negative cells show low intensity. The GMM-based methods (GMM, PC-GMM) rely on this bimodality.
+
+![Channel Intensity Example](_static/figures/channel_intensity.png)
+
+### Debarcoding
+
+Debarcoding assigns each cell to its sample by:
+
+1. Identifying the barcode pattern from channel intensities
+2. Validating or enforcing pattern correctness
+3. Computing confidence scores
+
+## Library Structure
+
+xcode_debarcode uses [AnnData](https://anndata.readthedocs.io/) objects throughout:
+
+| Attribute | Contents |
+|-----------|----------|
+| `adata.X` | Raw intensity matrix (cells × channels) |
+| `adata.layers` | Transformed data (e.g., 'log', 'arcsinh_cf10.0') |
+| `adata.obs` | Cell metadata (assignments, confidence scores) |
+| `adata.var` | Channel information |
+| `adata.uns` | Global metadata (barcode channels, method parameters) |
+
+### Modules
+
+| Module | Purpose |
+|--------|---------|
+| `io` | Read/write FCS and H5AD files, map channel names |
+| `preprocessing` | Log and arcsinh transformations, intensity filtering |
+| `debarcode` | Debarcoding methods (GMM, PreMessa, PC-GMM, Manual) |
+| `postprocessing` | Hamming clustering, confidence filtering, Mahalanobis filtering |
+| `barcode` | Pattern validation, Hamming distance, statistics |
+| `plots` | Interactive visualizations (Plotly) |
+| `simulate` | Synthetic data generation for testing |
+
+### Debarcoding Methods
+
+| Method | Description | Best for |
+|--------|-------------|----------|
+| **PC-GMM** | Pattern-constrained GMM. Best coverage-accuracy trade-off in most situations. | Bimodal regime (recommended) |
+| **PreMessa** | Iterative top-4 selection with per-channel normalization. | Unimodal regime |
+| **GMM** | Per-channel Gaussian mixture models. Assignments not constrained to valid patterns; use for exploration only. | Exploring raw signal without validity constraints |
+| **Manual** | User-defined per-channel thresholds. | Custom thresholds |
+
+## Next Steps
+
+- [Installation Guide](installation.md)
+- [Basic Usage Tutorial](tutorials/basic_usage.md)
+- [Method Comparison](tutorials/method_comparison.md)

@@ -1,0 +1,396 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Method Comparison &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Hamming Clustering Guidelines" href="hamming_guidelines.html" />
+    <link rel="prev" title="Basic Usage" href="basic_usage.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Method Comparison</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#available-methods">Available Methods</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pc-gmm-pattern-constrained-gmm">PC-GMM (Pattern-Constrained GMM)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#premessa">PreMessa</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gmm">GMM</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#performance-comparison">Performance Comparison</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#bimodal-regime">Bimodal Regime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#unimodal-regime">Unimodal Regime</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#gmm-specificities">GMM Specificities</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#method-selection-guidelines">Method Selection Guidelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#quick-decision">Quick Decision</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#summary-table">Summary Table</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="#common-workflow">Common Workflow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Method Comparison</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/tutorials/method_comparison.md.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="method-comparison">
+<h1>Method Comparison<a class="headerlink" href="#method-comparison" title="Link to this heading"></a></h1>
+<p>xcode_debarcode provides three debarcoding methods, each suited to different data regimes. This guide explains how each method works and provides performance benchmarks to help you choose the right method for your dataset.</p>
+<section id="available-methods">
+<h2>Available Methods<a class="headerlink" href="#available-methods" title="Link to this heading"></a></h2>
+<section id="pc-gmm-pattern-constrained-gmm">
+<h3>PC-GMM (Pattern-Constrained GMM)<a class="headerlink" href="#pc-gmm-pattern-constrained-gmm" title="Link to this heading"></a></h3>
+<p><strong>Recommended for most datasets (bimodal regime).</strong></p>
+<p>PC-GMM fits a 2-component Gaussian Mixture Model to each barcode channel independently, then enforces valid 4-of-9 pattern constraints when assigning cells to barcodes.</p>
+<p><strong>How it works:</strong></p>
+<ol class="arabic simple">
+<li><p>For each channel, fit a 2-component GMM to estimate ON and OFF distributions (means, variances, weights)</p></li>
+<li><p>For each cell, compute the log-likelihood of each channel being ON or OFF given the fitted GMM parameters</p></li>
+<li><p>For each 9-channel block, enumerate all 126 valid 4-of-9 patterns</p></li>
+<li><p>Compute the total log-likelihood for each valid pattern by summing channel log-likelihoods</p></li>
+<li><p>Select the maximum likelihood valid pattern for each block</p></li>
+<li><p>Compute Mahalanobis confidence based on distance to cluster centroids (raw per-block posteriors optionally saved)</p></li>
+</ol>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Always produces valid patterns (exactly 4 ON channels per block)</p></li>
+<li><p>Best coverage-accuracy trade-off in bimodal regime</p></li>
+<li><p>Requires bimodal channel distributions for reliable GMM fitting</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">adata</span> <span class="o">=</span> <span class="n">xd</span><span class="o">.</span><span class="n">debarcode</span><span class="o">.</span><span class="n">debarcode</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;pc_gmm&#39;</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="premessa">
+<h3>PreMessa<a class="headerlink" href="#premessa" title="Link to this heading"></a></h3>
+<p><strong>Recommended for unimodal regime (rare edge case).</strong></p>
+<p>PreMessa selects the top-4 highest intensity channels per block, with iterative per-channel normalization to handle intensity variation. The method is adapted from the <a class="reference external" href="https://github.com/ParkerICI/premessa">PreMessa R package</a> for X-Code barcode design.</p>
+<p><strong>How it works:</strong></p>
+<ol class="arabic simple">
+<li><p>For each 9-channel block, identify the 4 channels with highest intensity</p></li>
+<li><p>Compute the separation score: difference between the 4th and 5th highest intensities</p></li>
+<li><p>Iteratively normalize each channel by the 95th percentile of its ON population</p></li>
+<li><p>Repeat top-4 selection on normalized data</p></li>
+<li><p>Compute Mahalanobis confidence based on distance to cluster centroids (raw separation scores optionally saved)</p></li>
+</ol>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Always produces valid patterns (top-4 selection guarantees 4 ON channels)</p></li>
+<li><p>Does not require bimodal distributions (works when some channels lack both ON and OFF populations)</p></li>
+<li><p>Less precise than PC-GMM when channels are bimodal</p></li>
+</ul>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">adata</span> <span class="o">=</span> <span class="n">xd</span><span class="o">.</span><span class="n">debarcode</span><span class="o">.</span><span class="n">debarcode</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;premessa&#39;</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="gmm">
+<h3>GMM<a class="headerlink" href="#gmm" title="Link to this heading"></a></h3>
+<p><strong>For exploration only (assignments not constrained to valid patterns).</strong></p>
+<p>GMM fits a 2-component Gaussian Mixture Model to each channel independently and classifies each channel as ON or OFF based on posterior probability.</p>
+<p><strong>How it works:</strong></p>
+<ol class="arabic simple">
+<li><p>For each channel, fit a 2-component GMM</p></li>
+<li><p>For each cell, compute the posterior probability of the ON component</p></li>
+<li><p>Classify channel as ON if posterior &gt;= 0.5, OFF otherwise</p></li>
+<li><p>Combine all channel calls to form the barcode pattern</p></li>
+<li><p>Compute Mahalanobis confidence based on distance to cluster centroids (raw per-channel posteriors optionally saved)</p></li>
+</ol>
+<p><strong>Characteristics:</strong></p>
+<ul class="simple">
+<li><p>Assignments not constrained to valid patterns (can produce patterns with != 4 ON channels per block)</p></li>
+<li><p>Good accuracy when channels are well-separated</p></li>
+<li><p>Lower effective coverage because invalid patterns cannot be used downstream</p></li>
+</ul>
+<p>Because GMM does not enforce valid patterns, many cells receive invalid assignments. This makes the coverage-accuracy trade-off less flexible for the user to control via confidence filtering. Use GMM only for exploring the raw per-channel signal without forcing validity constraints on the CyTOF intensities.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">adata</span> <span class="o">=</span> <span class="n">xd</span><span class="o">.</span><span class="n">debarcode</span><span class="o">.</span><span class="n">debarcode</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;gmm&#39;</span><span class="p">,</span> <span class="n">layer</span><span class="o">=</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="performance-comparison">
+<h2>Performance Comparison<a class="headerlink" href="#performance-comparison" title="Link to this heading"></a></h2>
+<p>We evaluated method performance on simulated datasets with known ground truth across varying sublibrary sizes, channel configurations (18ch and 27ch), and noise levels.</p>
+<section id="bimodal-regime">
+<h3>Bimodal Regime<a class="headerlink" href="#bimodal-regime" title="Link to this heading"></a></h3>
+<p>The bimodal regime is the typical case where each barcode channel has distinct ON and OFF populations. This occurs when the sublibrary contains enough barcodes that every channel has some barcodes with it ON and some with it OFF.</p>
+<p><strong>Simulation setup:</strong> Sublibraries with more than 30 barcodes, where all channels exhibit bimodal intensity distributions. Hamming clustering applied with ratio=20 (18ch) and ratio=2 (27ch).</p>
+<figure class="align-center" id="id1">
+<a class="reference internal image-reference" href="../_images/fig_method_comparison.png"><img alt="../_images/fig_method_comparison.png" src="../_images/fig_method_comparison.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Method comparison in bimodal regime (n_barcodes &gt; 30). Left panels show 18-channel simulations; right panels show 27-channel simulations. <strong>a1, a2)</strong> Coverage-accuracy curves averaged across sublibrary sizes; solid lines show baseline, dashed lines show results after Hamming clustering. <strong>b1, b2)</strong> Percentage of true barcodes detected as a function of sublibrary size. <strong>c1, c2)</strong> Spearman correlation between predicted and true barcode counts. <strong>d1, d2)</strong> Accuracy at 80% coverage; solid bars show baseline performance, hatched bars show improvement from Hamming clustering.</span><a class="headerlink" href="#id1" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>PC-GMM consistently outperforms PreMessa across all metrics in the bimodal regime. The coverage-accuracy curves show that PC-GMM achieves higher accuracy at any given coverage level. Both methods detect nearly all true barcodes and achieve high Spearman correlation with true counts.</p>
+<p>The 27-channel configuration shows larger absolute accuracy values due to more dimensions to distinguish barcodes. Hamming clustering improves both methods, but PC-GMM maintains its lead throughout.</p>
+<p><strong>Conclusion:</strong> In the bimodal regime (the common case), PC-GMM provides the best coverage-accuracy trade-off.</p>
+</section>
+<section id="unimodal-regime">
+<h3>Unimodal Regime<a class="headerlink" href="#unimodal-regime" title="Link to this heading"></a></h3>
+<p>The unimodal regime occurs when some channels lack either an ON or OFF population entirely. This happens with very small sublibraries where, by chance, certain channels may be always ON or always OFF across all barcodes in the sublibrary.</p>
+<details>
+<summary><b>Expected Number of Bimodal Channels</b></summary>
+<br>
+<p>For a randomly selected sublibrary of size S from the full X-Code library, we can compute the expected number of channels that have both ON and OFF populations (i.e., bimodal channels).</p>
+<p><strong>Derivation of N_on and N_off:</strong></p>
+<p>Let k = number of 4-of-9 blocks (k=2 for 18ch, k=3 for 27ch). The total number of valid barcodes is <span class="math notranslate nohighlight">\(L_k = 126^k\)</span>, and there are 9k total channels.</p>
+<p>Pick one specific channel g; by symmetry all channels behave the same. The channel lives in some block. To count how many valid barcodes have that channel ON vs OFF:</p>
+<ul class="simple">
+<li><p>If that channel is ON, we need to choose 3 other ONs out of the remaining 8 channels in the block: <span class="math notranslate nohighlight">\(\binom{8}{3} = 56\)</span> patterns</p></li>
+<li><p>If that channel is OFF, we choose 4 ONs among the other 8 channels: <span class="math notranslate nohighlight">\(\binom{8}{4} = 70\)</span> patterns</p></li>
+<li><p>The other k-1 blocks can be any valid 4-of-9 pattern: <span class="math notranslate nohighlight">\(126^{k-1}\)</span> possibilities each</p></li>
+</ul>
+<p>So globally:</p>
+<div class="math notranslate nohighlight">
+\[N_{\text{on}} = 56 \cdot 126^{k-1}, \quad N_{\text{off}} = 70 \cdot 126^{k-1}\]</div>
+<p>Note that <span class="math notranslate nohighlight">\(L_k = N_{\text{on}} + N_{\text{off}} = 126^k\)</span> as expected.</p>
+<p><strong>Expected bimodal channels:</strong></p>
+<p>The probability that a channel has both ON and OFF populations in a random sublibrary of size S is:</p>
+<div class="math notranslate nohighlight">
+\[
+\mathbb{P}(A_g) = 1 - \frac{\binom{N_{\text{on}}}{S}}{\binom{L_k}{S}} - \frac{\binom{N_{\text{off}}}{S}}{\binom{L_k}{S}}
+\]</div>
+<p>By linearity of expectation, the expected number of bimodal channels is:</p>
+<div class="math notranslate nohighlight">
+\[
+\mathbb{E}[X] = 9k \cdot \mathbb{P}(A_g)
+\]</div>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Sublibrary Size (S)</p></th>
+<th class="head"><p>18ch (k=2)</p></th>
+<th class="head"><p>27ch (k=3)</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>0.00</p></td>
+<td><p>0.00</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>8.89</p></td>
+<td><p>13.33</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>13.33</p></td>
+<td><p>20.00</p></td>
+</tr>
+<tr class="row-odd"><td><p>5</p></td>
+<td><p>16.74</p></td>
+<td><p>25.10</p></td>
+</tr>
+<tr class="row-even"><td><p>10</p></td>
+<td><p>17.94</p></td>
+<td><p>26.92</p></td>
+</tr>
+<tr class="row-odd"><td><p>15</p></td>
+<td><p>17.99</p></td>
+<td><p>26.99</p></td>
+</tr>
+<tr class="row-even"><td><p>20</p></td>
+<td><p>18.00</p></td>
+<td><p>27.00</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Interpretation:</strong> With fewer than ~10 barcodes, a mix of unimodal and bimodal channels. Above ~10 barcodes, virtually all channels are bimodal.</p>
+</details>
+<br>
+<p><strong>Simulation setup:</strong> Sublibraries with 10 or fewer barcodes, representing the edge case where unimodal channels are expected. Hamming clustering applied with ratio=20 (18ch) and ratio=2 (27ch).</p>
+<figure class="align-center" id="id2">
+<a class="reference internal image-reference" href="../_images/fig_method_uni_comparison.png"><img alt="../_images/fig_method_uni_comparison.png" src="../_images/fig_method_uni_comparison.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">Method comparison in unimodal regime (n_barcodes &lt;= 10). Left panel shows 18-channel simulations; right panel shows 27-channel simulations. <strong>a1, a2)</strong> Accuracy at 80% coverage. PreMessa (red) outperforms PC-GMM (blue) when sublibrary sizes are very small and some channels lack bimodal distributions.</span><a class="headerlink" href="#id2" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>PreMessa outperforms PC-GMM in the unimodal regime, with the advantage most pronounced at very small sublibrary sizes (1-5 barcodes). This occurs because PC-GMM struggles when GMM fitting fails on channels that lack bimodal structure, while PreMessa’s top-4 selection approach does not require bimodal distributions to function correctly.</p>
+<p><strong>Conclusion:</strong> In the rare unimodal regime (very small sublibraries), PreMessa provides better accuracy.</p>
+</section>
+<section id="gmm-specificities">
+<h3>GMM Specificities<a class="headerlink" href="#gmm-specificities" title="Link to this heading"></a></h3>
+<p>GMM provides good per-channel classification but does not constrain assignments to valid patterns.</p>
+<p><strong>Simulation setup:</strong> Sublibraries with more than 10 barcodes. Hamming clustering applied with ratio=20 (18ch) and ratio=2 (27ch).</p>
+<figure class="align-center" id="id3">
+<a class="reference internal image-reference" href="../_images/fig_gmm_comparison.png"><img alt="../_images/fig_gmm_comparison.png" src="../_images/fig_gmm_comparison.png" style="width: 100%;" />
+</a>
+<figcaption>
+<p><span class="caption-text">GMM method performance (n_barcodes &gt; 10). Left panels show 18-channel simulations; right panels show 27-channel simulations. <strong>a1, a2)</strong> Accuracy: overall accuracy (correctly assigned cells / total cells). <strong>b1, b2)</strong> Coverage: fraction of cells assigned to valid patterns. Solid lines show baseline; dashed lines show results after Hamming clustering.</span><a class="headerlink" href="#id3" title="Link to this image"></a></p>
+</figcaption>
+</figure>
+<p>GMM achieves reasonable accuracy on cells with valid pattern assignments, but coverage is inherently limited because many cells receive invalid patterns. Hamming clustering helps by remapping invalid patterns to valid neighbors, but coverage remains lower than PC-GMM or PreMessa. This coverage limitation makes GMM less flexible for tuning the coverage-accuracy trade-off via confidence filtering.</p>
+<p><strong>Conclusion:</strong> While GMM produces reasonable per-channel classifications, its lack of validity constraints results in lower effective coverage. Use GMM only for exploration or when you specifically want to examine the raw per-channel signal without forcing valid pattern assignments.</p>
+</section>
+</section>
+<hr class="docutils" />
+<section id="method-selection-guidelines">
+<h2>Method Selection Guidelines<a class="headerlink" href="#method-selection-guidelines" title="Link to this heading"></a></h2>
+<section id="quick-decision">
+<h3>Quick Decision<a class="headerlink" href="#quick-decision" title="Link to this heading"></a></h3>
+<ol class="arabic simple">
+<li><p><strong>Visualize channel distributions</strong> using <code class="docutils literal notranslate"><span class="pre">xd.plots.plot_channel_intensities()</span></code></p></li>
+<li><p><strong>If all channels show bimodal distributions</strong> (distinct ON/OFF peaks): use <strong>PC-GMM</strong></p></li>
+<li><p><strong>If some channels appear unimodal</strong> (single peak, typically with very small sublibraries): use <strong>PreMessa</strong></p></li>
+</ol>
+</section>
+<section id="summary-table">
+<h3>Summary Table<a class="headerlink" href="#summary-table" title="Link to this heading"></a></h3>
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Regime</p></th>
+<th class="head"><p>Typical Sublibrary Size</p></th>
+<th class="head"><p>Recommended Method</p></th>
+<th class="head"><p>Rationale</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Bimodal</p></td>
+<td><p>&gt;= 20 barcodes</p></td>
+<td><p>PC-GMM</p></td>
+<td><p>Best coverage-accuracy trade-off</p></td>
+</tr>
+<tr class="row-odd"><td><p>Unimodal</p></td>
+<td><p>&lt; 10 barcodes</p></td>
+<td><p>PreMessa</p></td>
+<td><p>Works without bimodal structure</p></td>
+</tr>
+<tr class="row-even"><td><p>Exploration</p></td>
+<td><p>Any</p></td>
+<td><p>GMM</p></td>
+<td><p>Examine raw signal without validity constraints</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<hr class="docutils" />
+<section id="common-workflow">
+<h2>Common Workflow<a class="headerlink" href="#common-workflow" title="Link to this heading"></a></h2>
+<p>For step-by-step usage examples including transformation, intensity filtering, debarcoding, Hamming clustering, and confidence filtering, see the <a class="reference internal" href="basic_usage.html"><span class="std std-doc">Basic Usage</span></a> tutorial.</p>
+</section>
+<hr class="docutils" />
+<section id="summary">
+<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading"></a></h2>
+<ol class="arabic simple">
+<li><p><strong>PC-GMM is recommended for most datasets</strong> where channels show bimodal ON/OFF distributions</p></li>
+<li><p><strong>PreMessa is preferred for unimodal regimes</strong> (very small sublibraries where some channels lack bimodal structure)</p></li>
+<li><p><strong>GMM is for exploration only</strong> since unconstrained assignments limit coverage flexibility</p></li>
+<li><p><strong>Always inspect channel distributions</strong> before choosing a method</p></li>
+<li><p><strong>Hamming clustering improves all methods</strong> but cannot compensate for fundamentally mismatched method choice</p></li>
+</ol>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="basic_usage.html" class="btn btn-neutral float-left" title="Basic Usage" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="hamming_guidelines.html" class="btn btn-neutral float-right" title="Hamming Clustering Guidelines" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

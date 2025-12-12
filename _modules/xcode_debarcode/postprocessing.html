@@ -1,0 +1,1029 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../../">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>xcode_debarcode.postprocessing &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../../_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="../../_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="../../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../../_static/documentation_options.js?v=01f34227"></script>
+      <script src="../../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../../index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../simulate.html">simulate</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="../index.html">Module code</a></li>
+      <li class="breadcrumb-item active">xcode_debarcode.postprocessing</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for xcode_debarcode.postprocessing</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Postprocessing methods for confidence filtering and Hamming clustering.&quot;&quot;&quot;</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;OPENBLAS_NUM_THREADS&#39;</span><span class="p">,</span> <span class="s1">&#39;1&#39;</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;MKL_NUM_THREADS&#39;</span><span class="p">,</span> <span class="s1">&#39;1&#39;</span><span class="p">)</span>
+<span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;OMP_NUM_THREADS&#39;</span><span class="p">,</span> <span class="s1">&#39;1&#39;</span><span class="p">)</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">anndata</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ad</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.mixture</span><span class="w"> </span><span class="kn">import</span> <span class="n">GaussianMixture</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.discriminant_analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearDiscriminantAnalysis</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">defaultdict</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.barcode</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_valid_pattern</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;filter_cells_conf&quot;</span><span class="p">,</span> <span class="s2">&quot;filter_pattern&quot;</span><span class="p">,</span> <span class="s2">&quot;hamming_cluster&quot;</span><span class="p">,</span> <span class="s2">&quot;mahal_conf&quot;</span><span class="p">]</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_adaptive_threshold_gmm</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="mi">5</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute adaptive threshold using GMM.&quot;&quot;&quot;</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">values</span><span class="p">)[</span><span class="n">np</span><span class="o">.</span><span class="n">isfinite</span><span class="p">(</span><span class="n">values</span><span class="p">)]</span>
+    
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mf">0.0</span><span class="p">,</span> <span class="kc">None</span>
+    
+    <span class="c1"># Check if there&#39;s enough variance for 2-component GMM</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-6</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">values</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">values</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">threshold</span><span class="p">,</span> <span class="p">{</span><span class="s1">&#39;threshold&#39;</span><span class="p">:</span> <span class="n">threshold</span><span class="p">,</span> <span class="s1">&#39;note&#39;</span><span class="p">:</span> <span class="s1">&#39;insufficient variance, using median&#39;</span><span class="p">}</span>
+    
+    <span class="n">gmm</span> <span class="o">=</span> <span class="n">GaussianMixture</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">n_init</span><span class="o">=</span><span class="n">n_init</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+    <span class="n">gmm</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">values</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    
+    <span class="n">means</span> <span class="o">=</span> <span class="n">gmm</span><span class="o">.</span><span class="n">means_</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="n">stds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">gmm</span><span class="o">.</span><span class="n">covariances_</span><span class="o">.</span><span class="n">flatten</span><span class="p">())</span>
+    <span class="n">weights</span> <span class="o">=</span> <span class="n">gmm</span><span class="o">.</span><span class="n">weights_</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">means</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">threshold</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="mi">90</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">threshold</span><span class="p">,</span> <span class="p">{</span>
+        <span class="s1">&#39;means&#39;</span><span class="p">:</span> <span class="n">means</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;stds&#39;</span><span class="p">:</span> <span class="n">stds</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;weights&#39;</span><span class="p">:</span> <span class="n">weights</span><span class="o">.</span><span class="n">tolist</span><span class="p">(),</span>
+        <span class="s1">&#39;threshold&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span><span class="p">),</span>
+        <span class="s1">&#39;n_init&#39;</span><span class="p">:</span> <span class="n">n_init</span>
+    <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_build_hamming_neighbors</span><span class="p">(</span><span class="n">unique_patterns</span><span class="p">,</span> <span class="n">max_radius</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build Hamming neighbor graph up to max_radius.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">unique_patterns</span><span class="p">:</span>
+        <span class="k">return</span> <span class="p">{}</span>
+    
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">unique_patterns</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
+    <span class="n">dists</span> <span class="o">=</span> <span class="p">(</span><span class="n">arr</span><span class="p">[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">!=</span> <span class="n">arr</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">unique_patterns</span><span class="p">}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">triu</span><span class="p">((</span><span class="n">dists</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">dists</span> <span class="o">&lt;=</span> <span class="n">max_radius</span><span class="p">),</span> <span class="n">k</span><span class="o">=</span><span class="mi">1</span><span class="p">))):</span>
+        <span class="n">d</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dists</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">])</span>
+        <span class="n">neighbors</span><span class="p">[</span><span class="n">unique_patterns</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="n">unique_patterns</span><span class="p">[</span><span class="n">j</span><span class="p">]]</span> <span class="o">=</span> <span class="n">d</span>
+        <span class="n">neighbors</span><span class="p">[</span><span class="n">unique_patterns</span><span class="p">[</span><span class="n">j</span><span class="p">]][</span><span class="n">unique_patterns</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">d</span>
+    
+    <span class="k">return</span> <span class="n">neighbors</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_lda_classify</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">candidates</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">pattern_cells</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">set</span><span class="p">],</span>
+                  <span class="n">X</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">min_n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="nb">int</span><span class="p">]]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;LDA tie-breaking using sklearn. Returns cell assignments or None if insufficient data.&quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.discriminant_analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">LinearDiscriminantAnalysis</span>
+    
+    <span class="n">cells_p</span> <span class="o">=</span> <span class="n">pattern_cells</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">cells_p</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    
+    <span class="n">cells_p_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cells_p</span><span class="p">))</span>
+    
+    <span class="c1"># Include source only if valid</span>
+    <span class="n">p_valid</span> <span class="o">=</span> <span class="n">is_valid_pattern</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+    <span class="n">class_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="k">if</span> <span class="n">p_valid</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span>
+    
+    <span class="n">X_train_idx</span><span class="p">,</span> <span class="n">y_train</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="n">label_map</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">class_list</span><span class="p">:</span>
+        <span class="n">cells_c</span> <span class="o">=</span> <span class="n">pattern_cells</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells_c</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_n</span><span class="p">:</span>
+            <span class="n">label</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_map</span><span class="p">)</span>
+            <span class="n">label_map</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">c</span>
+            <span class="k">for</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">cells_c</span><span class="p">:</span>
+                <span class="n">X_train_idx</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+                <span class="n">y_train</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">label_map</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    
+    <span class="c1"># Get informative features</span>
+    <span class="n">p_bits</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
+    <span class="n">info_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">candidates</span><span class="p">:</span>
+        <span class="n">info_mask</span> <span class="o">|=</span> <span class="p">(</span><span class="n">p_bits</span> <span class="o">!=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="nb">int</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">c</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">))</span>
+    <span class="n">info_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">info_mask</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">info_idx</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    
+    <span class="n">X_train</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">X_train_idx</span><span class="p">][:,</span> <span class="n">info_idx</span><span class="p">]</span>
+    <span class="n">y_train</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">y_train</span><span class="p">)</span>
+    
+    <span class="n">lda</span> <span class="o">=</span> <span class="n">LinearDiscriminantAnalysis</span><span class="p">(</span><span class="n">solver</span><span class="o">=</span><span class="s1">&#39;svd&#39;</span><span class="p">)</span>
+    <span class="n">lda</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+    <span class="n">best_labels</span> <span class="o">=</span> <span class="n">lda</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">cells_p_arr</span><span class="p">][:,</span> <span class="n">info_idx</span><span class="p">])</span>
+    
+    <span class="n">result</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">best_labels</span><span class="p">):</span>
+        <span class="n">result</span><span class="p">[</span><span class="n">label_map</span><span class="p">[</span><span class="n">label</span><span class="p">]]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cells_p_arr</span><span class="p">[</span><span class="n">idx</span><span class="p">])</span>
+    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_msg_cluster</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">confidences</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                 <span class="n">X</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                 <span class="n">tie_break</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">ratio_metric</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Message passing clustering.&quot;&quot;&quot;</span>
+    <span class="n">n_cells</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">)</span>
+    
+    <span class="n">pattern_to_cells</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">):</span>
+        <span class="n">pattern_to_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    
+    <span class="n">pattern_stats</span><span class="p">,</span> <span class="n">pattern_cells</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">pattern_to_cells</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+        <span class="n">median</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">confidences</span><span class="p">[</span><span class="n">arr</span><span class="p">]))</span>
+        <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="n">count</span><span class="p">,</span> <span class="s1">&#39;median&#39;</span><span class="p">:</span> <span class="n">median</span><span class="p">,</span> <span class="s1">&#39;is_valid&#39;</span><span class="p">:</span> <span class="n">is_valid_pattern</span><span class="p">(</span><span class="n">p</span><span class="p">)}</span>
+        <span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+    
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">_build_hamming_neighbors</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">pattern_stats</span><span class="o">.</span><span class="n">keys</span><span class="p">()),</span> <span class="n">max_radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span>
+    <span class="n">all_patterns</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pattern_stats</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">all_patterns</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">patterns_str</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">confidences</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="p">{</span><span class="s1">&#39;n_remapped&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+    
+    <span class="n">sorted_patterns</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">all_patterns</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;count&#39;</span><span class="p">],</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;median&#39;</span><span class="p">]))</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pattern_stats</span><span class="p">}</span>
+    <span class="n">center_of</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">all_patterns</span><span class="p">}</span>
+    <span class="n">stats</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;n_ties&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_lda&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_stayed&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_moved&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">}</span>
+    
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">sorted_patterns</span><span class="p">:</span>
+        <span class="n">cells_p</span> <span class="o">=</span> <span class="n">pattern_cells</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cells_p</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="n">N_p</span><span class="p">,</span> <span class="n">conf_p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells_p</span><span class="p">),</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;median&#39;</span><span class="p">]</span>
+        <span class="n">score_p</span> <span class="o">=</span> <span class="n">N_p</span> <span class="o">*</span> <span class="n">conf_p</span>
+        <span class="n">p_valid</span> <span class="o">=</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;is_valid&#39;</span><span class="p">]</span>
+        
+        <span class="n">candidates_with_dist</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">dist</span> <span class="ow">in</span> <span class="n">neighbors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">pattern_stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;is_valid&#39;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">p_valid</span> <span class="ow">and</span> <span class="n">dist</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">p_valid</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ratio_metric</span> <span class="o">==</span> <span class="s1">&#39;score&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">mass</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">q</span><span class="p">][</span><span class="s1">&#39;median&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">ratio</span> <span class="o">*</span> <span class="n">score_p</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">mass</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">ratio</span> <span class="o">*</span> <span class="n">N_p</span><span class="p">:</span>
+                        <span class="k">continue</span>
+            <span class="n">candidates_with_dist</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">q</span><span class="p">,</span> <span class="n">dist</span><span class="p">))</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">candidates_with_dist</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="c1"># Pick candidates at minimum distance</span>
+        <span class="n">min_dist</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">d</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">candidates_with_dist</span><span class="p">)</span>
+        <span class="n">candidates</span> <span class="o">=</span> <span class="p">[</span><span class="n">q</span> <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">candidates_with_dist</span> <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="n">min_dist</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_ties&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">tie_break</span> <span class="o">==</span> <span class="s1">&#39;no_remap&#39;</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">tie_break</span> <span class="o">==</span> <span class="s1">&#39;lda&#39;</span> <span class="ow">and</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">_lda_classify</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">candidates</span><span class="p">,</span> <span class="n">pattern_cells</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+                    <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_lda&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">for</span> <span class="n">tgt</span><span class="p">,</span> <span class="n">cells</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">tgt</span> <span class="o">==</span> <span class="n">p</span><span class="p">:</span>
+                            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_stayed&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_moved&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span>
+                            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">:</span>
+                                <span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                                <span class="n">pattern_cells</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">tgt</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                            <span class="n">mass</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">mass</span><span class="p">[</span><span class="n">tgt</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_cells</span><span class="p">[</span><span class="n">tgt</span><span class="p">])</span>
+                    <span class="k">continue</span>
+        
+        <span class="n">best_q</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">candidates</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">q</span><span class="p">:</span> <span class="n">mass</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_moved&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells_p</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">cells_p</span><span class="p">):</span>
+            <span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">pattern_cells</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">best_q</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="n">mass</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">mass</span><span class="p">[</span><span class="n">best_q</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_cells</span><span class="p">[</span><span class="n">best_q</span><span class="p">])</span>
+        <span class="n">center_of</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_q</span>
+    
+    <span class="c1"># Resolve chains</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">all_patterns</span><span class="p">:</span>
+        <span class="n">curr</span><span class="p">,</span> <span class="n">visited</span> <span class="o">=</span> <span class="n">p</span><span class="p">,</span> <span class="nb">set</span><span class="p">()</span>
+        <span class="k">while</span> <span class="n">center_of</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">curr</span><span class="p">,</span> <span class="n">curr</span><span class="p">)</span> <span class="o">!=</span> <span class="n">curr</span> <span class="ow">and</span> <span class="n">curr</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited</span><span class="p">:</span>
+            <span class="n">visited</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">curr</span><span class="p">)</span>
+            <span class="n">curr</span> <span class="o">=</span> <span class="n">center_of</span><span class="p">[</span><span class="n">curr</span><span class="p">]</span>
+        <span class="n">center_of</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">curr</span>
+    
+    <span class="n">cell_to_pat</span> <span class="o">=</span> <span class="p">{</span><span class="n">c</span><span class="p">:</span> <span class="n">p</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">cells</span> <span class="ow">in</span> <span class="n">pattern_cells</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">}</span>
+    <span class="n">new_patterns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">new_confidences</span> <span class="o">=</span> <span class="n">confidences</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">n_remapped</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="c1"># Compute median confidence per final pattern (non-remapped cells only)</span>
+    <span class="n">final_pattern_cells</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_cells</span><span class="p">):</span>
+        <span class="n">final</span> <span class="o">=</span> <span class="n">center_of</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cell_to_pat</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">final</span> <span class="o">==</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="n">final_pattern_cells</span><span class="p">[</span><span class="n">final</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    
+    <span class="n">pattern_median_conf</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">cells</span> <span class="ow">in</span> <span class="n">final_pattern_cells</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">pattern_median_conf</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">confidences</span><span class="p">[</span><span class="n">cells</span><span class="p">]))</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_cells</span><span class="p">):</span>
+        <span class="n">final</span> <span class="o">=</span> <span class="n">center_of</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">cell_to_pat</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">]),</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">final</span> <span class="o">!=</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="n">n_remapped</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">new_patterns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">final</span>
+            <span class="n">new_confidences</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">pattern_median_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">final</span><span class="p">,</span> <span class="n">confidences</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    
+    <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_remapped&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_remapped</span>
+    <span class="k">return</span> <span class="n">new_patterns</span><span class="p">,</span> <span class="n">new_confidences</span><span class="p">,</span> <span class="n">stats</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_sphere_cluster</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">confidences</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span>
+                    <span class="n">X</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">radius</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+                    <span class="n">tie_break</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">min_count_center</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">ratio_metric</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">Dict</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Sphere clustering: local maxima centers, remap within radius.&quot;&quot;&quot;</span>
+    <span class="n">n_cells</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">)</span>
+    
+    <span class="n">pattern_to_cells</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">):</span>
+        <span class="n">pattern_to_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    
+    <span class="n">pattern_stats</span><span class="p">,</span> <span class="n">pattern_cells</span> <span class="o">=</span> <span class="p">{},</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">pattern_to_cells</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+        <span class="n">median</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">confidences</span><span class="p">[</span><span class="n">arr</span><span class="p">]))</span>
+        <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="n">count</span><span class="p">,</span> <span class="s1">&#39;median&#39;</span><span class="p">:</span> <span class="n">median</span><span class="p">,</span> <span class="s1">&#39;is_valid&#39;</span><span class="p">:</span> <span class="n">is_valid_pattern</span><span class="p">(</span><span class="n">p</span><span class="p">)}</span>
+        <span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+    
+    <span class="n">unique</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pattern_stats</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">neighbors</span> <span class="o">=</span> <span class="n">_build_hamming_neighbors</span><span class="p">(</span><span class="n">unique</span><span class="p">,</span> <span class="n">max_radius</span><span class="o">=</span><span class="n">radius</span><span class="p">)</span>
+    
+    <span class="c1"># Centers: valid local maxima</span>
+    <span class="n">centers</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">pattern_stats</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+               <span class="k">if</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;is_valid&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">min_count_center</span>
+               <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">pattern_stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">s</span><span class="p">[</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> 
+                      <span class="k">for</span> <span class="n">q</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">neighbors</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)]</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">centers</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">patterns_str</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">confidences</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="p">{</span><span class="s1">&#39;n_centers&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_remapped&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;centers&#39;</span><span class="p">:</span> <span class="p">[]}</span>
+    
+    <span class="n">center_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">centers</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
+    <span class="n">center_set</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">centers</span><span class="p">)</span>
+    
+    <span class="n">non_centers</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">unique</span> <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">center_set</span><span class="p">],</span>
+                        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="p">(</span><span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;count&#39;</span><span class="p">],</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;median&#39;</span><span class="p">]))</span>
+    
+    <span class="n">mass</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;count&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pattern_stats</span><span class="p">}</span>
+    <span class="n">parent</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">stats</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;n_centers&#39;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">centers</span><span class="p">),</span> <span class="s1">&#39;n_ties&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_lda&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_stayed&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;n_moved&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;centers&#39;</span><span class="p">:</span> <span class="n">centers</span><span class="p">}</span>
+    
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">non_centers</span><span class="p">:</span>
+        <span class="n">cells_p</span> <span class="o">=</span> <span class="n">pattern_cells</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">cells_p</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="n">N_p</span><span class="p">,</span> <span class="n">conf_p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells_p</span><span class="p">),</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;median&#39;</span><span class="p">]</span>
+        <span class="n">score_p</span> <span class="o">=</span> <span class="n">N_p</span> <span class="o">*</span> <span class="n">conf_p</span>
+        <span class="n">p_valid</span> <span class="o">=</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="s1">&#39;is_valid&#39;</span><span class="p">]</span>
+        <span class="n">p_arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="nb">int</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">p</span><span class="p">]],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>
+        <span class="n">dists</span> <span class="o">=</span> <span class="p">(</span><span class="n">center_arr</span> <span class="o">!=</span> <span class="n">p_arr</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="n">valid_idx</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">centers</span><span class="p">)):</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="n">dists</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">d</span> <span class="o">&gt;</span> <span class="n">radius</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">p_valid</span> <span class="ow">and</span> <span class="n">d</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">p_valid</span><span class="p">:</span>
+                <span class="k">if</span> <span class="n">ratio_metric</span> <span class="o">==</span> <span class="s1">&#39;score&#39;</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">mass</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span> <span class="o">*</span> <span class="n">pattern_stats</span><span class="p">[</span><span class="n">centers</span><span class="p">[</span><span class="n">i</span><span class="p">]][</span><span class="s1">&#39;median&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">ratio</span> <span class="o">*</span> <span class="n">score_p</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">mass</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">centers</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">ratio</span> <span class="o">*</span> <span class="n">N_p</span><span class="p">:</span>
+                        <span class="k">continue</span>
+            <span class="n">valid_idx</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">i</span><span class="p">,</span> <span class="n">d</span><span class="p">))</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_idx</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="n">min_dist</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">d</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">valid_idx</span><span class="p">)</span>
+        <span class="n">closest</span> <span class="o">=</span> <span class="p">[</span><span class="n">centers</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">valid_idx</span> <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="n">min_dist</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">closest</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_ties&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="n">tie_break</span> <span class="o">==</span> <span class="s1">&#39;no_remap&#39;</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">tie_break</span> <span class="o">==</span> <span class="s1">&#39;lda&#39;</span> <span class="ow">and</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">_lda_classify</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">closest</span><span class="p">,</span> <span class="n">pattern_cells</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">result</span><span class="p">:</span>
+                    <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_lda&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+                    <span class="k">for</span> <span class="n">tgt</span><span class="p">,</span> <span class="n">cells</span> <span class="ow">in</span> <span class="n">result</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">tgt</span> <span class="o">==</span> <span class="n">p</span><span class="p">:</span>
+                            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_stayed&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_moved&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span>
+                            <span class="n">parent</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">tgt</span>
+                            <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">:</span>
+                                <span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                                <span class="n">pattern_cells</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">tgt</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+                            <span class="n">mass</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">mass</span><span class="p">[</span><span class="n">tgt</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_cells</span><span class="p">[</span><span class="n">tgt</span><span class="p">])</span>
+                    <span class="k">continue</span>
+        
+        <span class="n">best</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">closest</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">mass</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+        <span class="n">parent</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">best</span>
+        <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_moved&#39;</span><span class="p">]</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cells_p</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">cells_p</span><span class="p">):</span>
+            <span class="n">pattern_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+            <span class="n">pattern_cells</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="n">best</span><span class="p">,</span> <span class="nb">set</span><span class="p">())</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+        <span class="n">mass</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">mass</span><span class="p">[</span><span class="n">best</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_cells</span><span class="p">[</span><span class="n">best</span><span class="p">])</span>
+    
+    <span class="n">new_patterns</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+    <span class="n">new_confidences</span> <span class="o">=</span> <span class="n">confidences</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">n_remapped</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="c1"># Compute median confidence per final pattern (non-remapped cells only)</span>
+    <span class="n">final_pattern_cells</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_cells</span><span class="p">):</span>
+        <span class="n">final</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">final</span> <span class="o">==</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="n">final_pattern_cells</span><span class="p">[</span><span class="n">final</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    
+    <span class="n">pattern_median_conf</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">cells</span> <span class="ow">in</span> <span class="n">final_pattern_cells</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">pattern_median_conf</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">confidences</span><span class="p">[</span><span class="n">cells</span><span class="p">]))</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_cells</span><span class="p">):</span>
+        <span class="n">final</span> <span class="o">=</span> <span class="n">parent</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">final</span> <span class="o">!=</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span>
+            <span class="n">n_remapped</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="n">new_patterns</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">final</span>
+            <span class="n">new_confidences</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">pattern_median_conf</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">final</span><span class="p">,</span> <span class="n">confidences</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+    
+    <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_remapped&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n_remapped</span>
+    <span class="k">return</span> <span class="n">new_patterns</span><span class="p">,</span> <span class="n">new_confidences</span><span class="p">,</span> <span class="n">stats</span>
+
+
+<div class="viewcode-block" id="filter_cells_conf">
+<a class="viewcode-back" href="../../postprocessing.html#xcode_debarcode.postprocessing.filter_cells_conf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">filter_cells_conf</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>
+                        <span class="n">confidence_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;percentile&#39;</span><span class="p">,</span>
+                        <span class="n">value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="mi">90</span><span class="p">,</span>
+                        <span class="n">filter_or_flag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;flag&#39;</span><span class="p">,</span>
+                        <span class="n">adaptive_n_init</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+                        <span class="n">filter_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> 
+                        <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Filter cells by confidence score.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data object.</span>
+<span class="sd">    confidence_col : str</span>
+<span class="sd">        Name of confidence column in ``adata.obs``.</span>
+<span class="sd">    method : {&#39;percentile&#39;, &#39;threshold&#39;, &#39;adaptive&#39;}, default &#39;percentile&#39;</span>
+<span class="sd">        Filtering method:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``&#39;threshold&#39;``: keep cells with confidence &gt;= value</span>
+<span class="sd">        - ``&#39;percentile&#39;``: keep top value% of cells by confidence</span>
+<span class="sd">        - ``&#39;adaptive&#39;``: GMM-based automatic threshold</span>
+<span class="sd">    value : float, optional, default 90</span>
+<span class="sd">        For ``&#39;threshold&#39;``: minimum confidence to pass.</span>
+<span class="sd">        For ``&#39;percentile&#39;``: percentage of top cells to keep.</span>
+<span class="sd">    filter_or_flag : {&#39;flag&#39;, &#39;filter&#39;}, default &#39;flag&#39;</span>
+<span class="sd">        ``&#39;flag&#39;`` to add boolean column, ``&#39;filter&#39;`` to remove cells.</span>
+<span class="sd">    adaptive_n_init : int, default 5</span>
+<span class="sd">        GMM initializations for adaptive method.</span>
+<span class="sd">    filter_name : str, optional</span>
+<span class="sd">        Custom name for this filtering run. If None, auto-generates unique name.</span>
+<span class="sd">    inplace : bool, default True</span>
+<span class="sd">        Modify adata in place.</span>
+<span class="sd">    verbose : bool, default True</span>
+<span class="sd">        Print progress messages.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AnnData</span>
+<span class="sd">        AnnData with filtering results.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="n">confidence_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Confidence column &#39;</span><span class="si">{</span><span class="n">confidence_col</span><span class="si">}</span><span class="s2">&#39; not found in adata.obs&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;adaptive&#39;</span><span class="p">,</span> <span class="s1">&#39;threshold&#39;</span><span class="p">,</span> <span class="s1">&#39;percentile&#39;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;adaptive&#39;, &#39;threshold&#39;, or &#39;percentile&#39;, got &#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">filter_or_flag</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;flag&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;filter_or_flag must be &#39;flag&#39; or &#39;filter&#39;, got &#39;</span><span class="si">{</span><span class="n">filter_or_flag</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;threshold&#39;</span><span class="p">,</span> <span class="s1">&#39;percentile&#39;</span><span class="p">]</span> <span class="ow">and</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method=&#39;</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">&#39; requires &#39;value&#39; parameter&quot;</span><span class="p">)</span>
+    
+    <span class="n">confidences</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">confidence_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+    <span class="n">gmm_params</span> <span class="o">=</span> <span class="kc">None</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;adaptive&#39;</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Computing adaptive threshold using GMM (n_init=</span><span class="si">{</span><span class="n">adaptive_n_init</span><span class="si">}</span><span class="s2">)...&quot;</span><span class="p">)</span>
+        <span class="n">threshold</span><span class="p">,</span> <span class="n">gmm_params</span> <span class="o">=</span> <span class="n">_adaptive_threshold_gmm</span><span class="p">(</span><span class="n">confidences</span><span class="p">,</span> <span class="n">adaptive_n_init</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Adaptive threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">gmm_params</span> <span class="ow">and</span> <span class="s1">&#39;means&#39;</span> <span class="ow">in</span> <span class="n">gmm_params</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  GMM means: </span><span class="si">{</span><span class="n">gmm_params</span><span class="p">[</span><span class="s1">&#39;means&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;threshold&#39;</span><span class="p">:</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using manual threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># percentile</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">confidences</span><span class="p">,</span> <span class="mi">100</span> <span class="o">-</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Percentile threshold (keep top </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">%): </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">pass_mask</span> <span class="o">=</span> <span class="n">confidences</span> <span class="o">&gt;=</span> <span class="n">threshold</span>
+    <span class="n">n_pass</span> <span class="o">=</span> <span class="n">pass_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+    <span class="n">pct_pass</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">n_pass</span> <span class="o">/</span> <span class="n">n_total</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Pass: </span><span class="si">{</span><span class="n">n_pass</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2"> cells (</span><span class="si">{</span><span class="n">pct_pass</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Handle flag column naming with auto-increment</span>
+    <span class="k">if</span> <span class="n">filter_or_flag</span> <span class="o">==</span> <span class="s1">&#39;flag&#39;</span><span class="p">:</span>
+        <span class="n">method_name</span> <span class="o">=</span> <span class="n">confidence_col</span><span class="p">[:</span><span class="n">confidence_col</span><span class="o">.</span><span class="n">rfind</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">)]</span>
+        <span class="n">base_flag_col</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">method_name</span><span class="si">}</span><span class="s2">_pass&quot;</span>
+        
+        <span class="c1"># Auto-increment if column exists</span>
+        <span class="n">flag_col</span> <span class="o">=</span> <span class="n">base_flag_col</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="n">flag_col</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">flag_col</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_flag_col</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        
+        <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">flag_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pass_mask</span>
+        
+        <span class="c1"># Use flag column name as filter_name if not provided</span>
+        <span class="k">if</span> <span class="n">filter_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filter_name</span> <span class="o">=</span> <span class="n">flag_col</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Added flag column: adata.obs[&#39;</span><span class="si">{</span><span class="n">flag_col</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">pass_mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        
+        <span class="c1"># Use default filter_name if not provided</span>
+        <span class="k">if</span> <span class="n">filter_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filter_name</span> <span class="o">=</span> <span class="n">confidence_col</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Filtered to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Store metadata with unique filter_name</span>
+    <span class="k">if</span> <span class="s1">&#39;confidence_filtering&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;confidence_filtering&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;confidence_filtering&#39;</span><span class="p">][</span><span class="n">filter_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;confidence_col&#39;</span><span class="p">:</span> <span class="n">confidence_col</span><span class="p">,</span>
+        <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+        <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span>
+        <span class="s1">&#39;threshold&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span><span class="p">),</span>
+        <span class="s1">&#39;filter_or_flag&#39;</span><span class="p">:</span> <span class="n">filter_or_flag</span><span class="p">,</span>
+        <span class="s1">&#39;n_pass&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_pass</span><span class="p">),</span>
+        <span class="s1">&#39;n_total&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_total</span><span class="p">),</span>
+        <span class="s1">&#39;pct_pass&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct_pass</span><span class="p">),</span>
+        <span class="s1">&#39;adaptive_n_init&#39;</span><span class="p">:</span> <span class="n">adaptive_n_init</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;adaptive&#39;</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="n">gmm_params</span><span class="p">:</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;confidence_filtering&#39;</span><span class="p">][</span><span class="n">filter_name</span><span class="p">][</span><span class="s1">&#39;gmm_params&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">gmm_params</span>
+
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Metadata saved: adata.uns[&#39;confidence_filtering&#39;][&#39;</span><span class="si">{</span><span class="n">filter_name</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+<div class="viewcode-block" id="filter_pattern">
+<a class="viewcode-back" href="../../postprocessing.html#xcode_debarcode.postprocessing.filter_pattern">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">filter_pattern</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>
+                   <span class="n">assignment_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                   <span class="n">confidence_col</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span>
+                   <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;threshold&#39;</span><span class="p">,</span>
+                   <span class="n">value</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+                   <span class="n">filter_or_flag</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;flag&#39;</span><span class="p">,</span>
+                   <span class="n">filter_name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                   <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                   <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Filter cells by barcode pattern statistics.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data object.</span>
+<span class="sd">    assignment_col : str</span>
+<span class="sd">        Name of barcode assignment column in ``adata.obs``.</span>
+<span class="sd">    confidence_col : str, optional</span>
+<span class="sd">        Name of confidence column in ``adata.obs``. Required when metric is</span>
+<span class="sd">        ``&#39;median_conf&#39;`` or ``&#39;score&#39;``.</span>
+<span class="sd">    metric : {&#39;count&#39;, &#39;median_conf&#39;, &#39;score&#39;}, default &#39;count&#39;</span>
+<span class="sd">        Pattern metric:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``&#39;count&#39;``: number of cells per pattern</span>
+<span class="sd">        - ``&#39;median_conf&#39;``: median confidence per pattern</span>
+<span class="sd">        - ``&#39;score&#39;``: count * median_conf</span>
+<span class="sd">    method : {&#39;threshold&#39;, &#39;percentile&#39;}, default &#39;threshold&#39;</span>
+<span class="sd">        Filtering method:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``&#39;threshold&#39;``: keep patterns with metric &gt;= value</span>
+<span class="sd">        - ``&#39;percentile&#39;``: keep top value% of patterns by metric</span>
+<span class="sd">    value : float, default 10</span>
+<span class="sd">        For ``&#39;threshold&#39;``: minimum metric value to pass.</span>
+<span class="sd">        For ``&#39;percentile&#39;``: percentage of top patterns to keep.</span>
+<span class="sd">    filter_or_flag : {&#39;flag&#39;, &#39;filter&#39;}, default &#39;flag&#39;</span>
+<span class="sd">        ``&#39;flag&#39;`` to add boolean column, ``&#39;filter&#39;`` to remove cells.</span>
+<span class="sd">    filter_name : str, optional</span>
+<span class="sd">        Custom name for this filtering run. If None, auto-generates unique name.</span>
+<span class="sd">    inplace : bool, default True</span>
+<span class="sd">        Modify adata in place.</span>
+<span class="sd">    verbose : bool, default True</span>
+<span class="sd">        Print progress messages.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AnnData</span>
+<span class="sd">        AnnData with filtering results.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="k">if</span> <span class="n">assignment_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Assignment column &#39;</span><span class="si">{</span><span class="n">assignment_col</span><span class="si">}</span><span class="s2">&#39; not found in adata.obs&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;count&#39;</span><span class="p">,</span> <span class="s1">&#39;median_conf&#39;</span><span class="p">,</span> <span class="s1">&#39;score&#39;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;metric must be &#39;count&#39;, &#39;median_conf&#39;, or &#39;score&#39;, got </span><span class="si">{</span><span class="n">metric</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">metric</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;median_conf&#39;</span><span class="p">,</span> <span class="s1">&#39;score&#39;</span><span class="p">}</span> <span class="ow">and</span> <span class="n">confidence_col</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;confidence_col is required when metric is &#39;</span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">confidence_col</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">confidence_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Confidence column &#39;</span><span class="si">{</span><span class="n">confidence_col</span><span class="si">}</span><span class="s2">&#39; not found in adata.obs&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;threshold&#39;</span><span class="p">,</span> <span class="s1">&#39;percentile&#39;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;threshold&#39; or &#39;percentile&#39;, got </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">filter_or_flag</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s1">&#39;flag&#39;</span><span class="p">,</span> <span class="s1">&#39;filter&#39;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;filter_or_flag must be &#39;flag&#39; or &#39;filter&#39;, got </span><span class="si">{</span><span class="n">filter_or_flag</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">patterns</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">assignment_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">confidences</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">confidence_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span> <span class="k">if</span> <span class="n">confidence_col</span> <span class="k">else</span> <span class="kc">None</span>
+    
+    <span class="c1"># Compute per-pattern statistics</span>
+    <span class="n">pattern_to_cells</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">patterns</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">p</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pattern_to_cells</span><span class="p">:</span>
+            <span class="n">pattern_to_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">pattern_to_cells</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    
+    <span class="n">pattern_stats</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">indices</span> <span class="ow">in</span> <span class="n">pattern_to_cells</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+        <span class="n">stats</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;count&#39;</span><span class="p">:</span> <span class="n">count</span><span class="p">}</span>
+        <span class="k">if</span> <span class="n">confidences</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">median_conf</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">confidences</span><span class="p">[</span><span class="n">indices</span><span class="p">]))</span>
+            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;median_conf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">median_conf</span>
+            <span class="n">stats</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">count</span> <span class="o">*</span> <span class="n">median_conf</span>
+        <span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats</span>
+    
+    <span class="n">metric_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">pattern_stats</span><span class="p">[</span><span class="n">p</span><span class="p">][</span><span class="n">metric</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pattern_stats</span><span class="p">])</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;threshold&#39;</span><span class="p">:</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">value</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Filter by pattern </span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2"> &gt;= </span><span class="si">{</span><span class="n">threshold</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>  
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">metric_values</span><span class="p">,</span> <span class="mi">100</span> <span class="o">-</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Filter by pattern </span><span class="si">{</span><span class="n">metric</span><span class="si">}</span><span class="s2"> (top </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">%): threshold = </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">passing_patterns</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">pattern_stats</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="n">metric</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">}</span>
+    <span class="n">n_patterns_pass</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">passing_patterns</span><span class="p">)</span>
+    <span class="n">n_patterns_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">pattern_stats</span><span class="p">)</span>
+    
+    <span class="n">pass_mask</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">p</span> <span class="ow">in</span> <span class="n">passing_patterns</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">patterns</span><span class="p">])</span>
+    <span class="n">n_pass</span> <span class="o">=</span> <span class="n">pass_mask</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+    <span class="n">pct_pass</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">n_pass</span> <span class="o">/</span> <span class="n">n_total</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Patterns passing: </span><span class="si">{</span><span class="n">n_patterns_pass</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_patterns_total</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Cells passing: </span><span class="si">{</span><span class="n">n_pass</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">pct_pass</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Handle flag column naming with auto-increment</span>
+    <span class="k">if</span> <span class="n">filter_or_flag</span> <span class="o">==</span> <span class="s1">&#39;flag&#39;</span><span class="p">:</span>
+        <span class="n">base_name</span> <span class="o">=</span> <span class="n">assignment_col</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;_&#39;</span> <span class="ow">in</span> <span class="n">assignment_col</span> <span class="k">else</span> <span class="n">assignment_col</span>
+        <span class="n">base_flag_col</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_pattern_pass&quot;</span>
+        
+        <span class="n">flag_col</span> <span class="o">=</span> <span class="n">base_flag_col</span>
+        <span class="n">counter</span> <span class="o">=</span> <span class="mi">1</span>
+        <span class="k">while</span> <span class="n">flag_col</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">flag_col</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_flag_col</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">counter</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="n">counter</span> <span class="o">+=</span> <span class="mi">1</span>
+        
+        <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">flag_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">pass_mask</span>
+        
+        <span class="k">if</span> <span class="n">filter_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filter_name</span> <span class="o">=</span> <span class="n">flag_col</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Added flag column: adata.obs[&#39;</span><span class="si">{</span><span class="n">flag_col</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">pass_mask</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        
+        <span class="k">if</span> <span class="n">filter_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filter_name</span> <span class="o">=</span> <span class="n">assignment_col</span>
+        
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Filtered to </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="s1">&#39;pattern_filtering&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;pattern_filtering&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;pattern_filtering&#39;</span><span class="p">][</span><span class="n">filter_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;assignment_col&#39;</span><span class="p">:</span> <span class="n">assignment_col</span><span class="p">,</span>
+        <span class="s1">&#39;confidence_col&#39;</span><span class="p">:</span> <span class="n">confidence_col</span><span class="p">,</span>
+        <span class="s1">&#39;metric&#39;</span><span class="p">:</span> <span class="n">metric</span><span class="p">,</span>
+        <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+        <span class="s1">&#39;value&#39;</span><span class="p">:</span> <span class="n">value</span><span class="p">,</span>
+        <span class="s1">&#39;threshold&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">threshold</span><span class="p">),</span>
+        <span class="s1">&#39;filter_or_flag&#39;</span><span class="p">:</span> <span class="n">filter_or_flag</span><span class="p">,</span>
+        <span class="s1">&#39;n_patterns_pass&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_patterns_pass</span><span class="p">),</span>
+        <span class="s1">&#39;n_patterns_total&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_patterns_total</span><span class="p">),</span>
+        <span class="s1">&#39;n_cells_pass&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_pass</span><span class="p">),</span>
+        <span class="s1">&#39;n_cells_total&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_total</span><span class="p">),</span>
+        <span class="s1">&#39;pct_cells_pass&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct_pass</span><span class="p">),</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Metadata saved: adata.uns[&#39;pattern_filtering&#39;][&#39;</span><span class="si">{</span><span class="n">filter_name</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+
+<div class="viewcode-block" id="hamming_cluster">
+<a class="viewcode-back" href="../../postprocessing.html#xcode_debarcode.postprocessing.hamming_cluster">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">hamming_cluster</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>
+                    <span class="n">assignment_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                    <span class="n">confidence_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                    <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;msg&#39;</span><span class="p">,</span>
+                    <span class="n">radius</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+                    <span class="n">ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">15.0</span><span class="p">,</span>
+                    <span class="n">ratio_metric</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;count&#39;</span><span class="p">,</span>
+                    <span class="n">tie_break</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;lda&#39;</span><span class="p">,</span>
+                    <span class="n">low_conf_perc</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                    <span class="n">min_count_center</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+                    <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;log&#39;</span><span class="p">,</span>
+                    <span class="n">save_results</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="n">inplace</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+                    <span class="n">verbose</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply Hamming clustering to correct barcode assignments.</span>
+<span class="sd">    </span>
+<span class="sd">    Iteratively merges small/low-confidence patterns into larger neighbors.</span>
+<span class="sd">    Handles both valid patterns (4-of-9 in each block) and invalid patterns</span>
+<span class="sd">    (which are remapped unconditionally to nearest valid neighbor within radius).</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data with debarcoding results.</span>
+<span class="sd">    assignment_col : str</span>
+<span class="sd">        Column in ``adata.obs`` with barcode assignments.</span>
+<span class="sd">    confidence_col : str</span>
+<span class="sd">        Column in ``adata.obs`` with confidence scores.</span>
+<span class="sd">    method : {&#39;msg&#39;, &#39;sphere&#39;}, default &#39;msg&#39;</span>
+<span class="sd">        Clustering method: ``&#39;msg&#39;`` (message passing) or ``&#39;sphere&#39;`` (local maxima).</span>
+<span class="sd">    radius : int, default 2</span>
+<span class="sd">        Max Hamming distance for neighbor search.</span>
+<span class="sd">    ratio : float, default 15.0</span>
+<span class="sd">        Minimum ratio for remapping valid patterns.</span>
+<span class="sd">        Use ~15 for 18ch, ~5 for 27ch or small K.</span>
+<span class="sd">    ratio_metric : {&#39;count&#39;, &#39;score&#39;}, default &#39;count&#39;</span>
+<span class="sd">        Ratio metric: ``&#39;count&#39;`` (N_q &gt;= ratio * N_p) or </span>
+<span class="sd">        ``&#39;score&#39;`` (count*conf_q &gt;= ratio * count*conf_p).</span>
+<span class="sd">    tie_break : {&#39;no_remap&#39;, &#39;count&#39;, &#39;lda&#39;}, default &#39;lda&#39;</span>
+<span class="sd">        Tie-break method when multiple equidistant neighbors pass ratio test.</span>
+<span class="sd">    low_conf_perc : float, optional</span>
+<span class="sd">        Only remap bottom N% confidence cells. Default: None (all cells).</span>
+<span class="sd">    min_count_center : int, default 1</span>
+<span class="sd">        Minimum count for centers (sphere method only).</span>
+<span class="sd">    layer : str, default &#39;log&#39;</span>
+<span class="sd">        Data layer for LDA tie-breaking.</span>
+<span class="sd">    save_results : bool, default True</span>
+<span class="sd">        Save metadata to ``adata.uns``.</span>
+<span class="sd">    inplace : bool, default True</span>
+<span class="sd">        Modify adata in place.</span>
+<span class="sd">    verbose : bool, default True</span>
+<span class="sd">        Print progress messages.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    AnnData</span>
+<span class="sd">        AnnData with columns added:</span>
+<span class="sd">        </span>
+<span class="sd">        - ``{base}_hamming_assignment``: corrected assignments</span>
+<span class="sd">        - ``{base}_hamming_confidence``: Mahalanobis confidence (recomputed)</span>
+<span class="sd">        - ``{base}_hamming_remapped``: boolean mask of remapped cells</span>
+<span class="sd">        </span>
+<span class="sd">        where ``base`` is ``assignment_col`` with trailing suffix stripped.</span>
+<span class="sd">    </span>
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    **Recommended settings:**</span>
+<span class="sd">    </span>
+<span class="sd">    - 18-channel (2 blocks): Default settings (ratio=15, tie_break=&#39;lda&#39;)</span>
+<span class="sd">    - 27-channel (3 blocks): Lower ratio (ratio=5) due to sparser barcode space</span>
+<span class="sd">    - Small K (few barcodes): Lower ratio (5-10) as patterns are more isolated</span>
+<span class="sd">    </span>
+<span class="sd">    Invalid patterns (not 4-of-9 per block) are always remapped to the nearest</span>
+<span class="sd">    valid neighbor within radius without ratio tests. Valid patterns are remapped </span>
+<span class="sd">    only to even-distance valid neighbors that pass the ratio test.</span>
+<span class="sd">    </span>
+<span class="sd">    Mahalanobis confidence is recomputed for all cells after remapping.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">method</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;msg&quot;</span><span class="p">,</span> <span class="s2">&quot;sphere&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;method must be &#39;msg&#39; or &#39;sphere&#39;, got </span><span class="si">{</span><span class="n">method</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">ratio_metric</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;score&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;ratio_metric must be &#39;count&#39; or &#39;score&#39;, got </span><span class="si">{</span><span class="n">ratio_metric</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">tie_break</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;no_remap&quot;</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">,</span> <span class="s2">&quot;lda&quot;</span><span class="p">}:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tie_break must be &#39;no_remap&#39;, &#39;count&#39;, or &#39;lda&#39;, got </span><span class="si">{</span><span class="n">tie_break</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">inplace</span><span class="p">:</span>
+        <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="n">base_name</span> <span class="o">=</span> <span class="n">assignment_col</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;_&#39;</span> <span class="ow">in</span> <span class="n">assignment_col</span> <span class="k">else</span> <span class="n">assignment_col</span>
+    <span class="n">patterns_str</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">assignment_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    <span class="n">confidences</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">confidence_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="n">n_cells</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Hamming clustering: method=</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="s2">, radius=</span><span class="si">{</span><span class="n">radius</span><span class="si">}</span><span class="s2">, ratio=</span><span class="si">{</span><span class="n">ratio</span><span class="si">}</span><span class="s2">, &quot;</span>
+              <span class="sa">f</span><span class="s2">&quot;ratio_metric=</span><span class="si">{</span><span class="n">ratio_metric</span><span class="si">}</span><span class="s2">, tie_break=</span><span class="si">{</span><span class="n">tie_break</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">X</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">if</span> <span class="n">tie_break</span> <span class="o">==</span> <span class="s1">&#39;lda&#39;</span> <span class="ow">and</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;barcode_channels&#39;</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+            <span class="n">bc_idx</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;barcode_channels&#39;</span><span class="p">]]</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="p">[:,</span> <span class="n">bc_idx</span><span class="p">]</span>
+    
+    <span class="k">if</span> <span class="n">low_conf_perc</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">eligible</span> <span class="o">=</span> <span class="n">confidences</span> <span class="o">&lt;=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">confidences</span><span class="p">,</span> <span class="n">low_conf_perc</span><span class="p">)</span>
+        <span class="n">eligible_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">eligible</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">n_eligible</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">eligible_idx</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Eligible: bottom </span><span class="si">{</span><span class="n">low_conf_perc</span><span class="si">}</span><span class="s2">% (</span><span class="si">{</span><span class="n">n_eligible</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_cells</span><span class="si">}</span><span class="s2"> cells)&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">eligible_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_cells</span><span class="p">)</span>
+        <span class="n">n_eligible</span> <span class="o">=</span> <span class="n">n_cells</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Eligible: all cells (</span><span class="si">{</span><span class="n">n_cells</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    
+    <span class="n">p_sub</span><span class="p">,</span> <span class="n">c_sub</span> <span class="o">=</span> <span class="n">patterns_str</span><span class="p">[</span><span class="n">eligible_idx</span><span class="p">],</span> <span class="n">confidences</span><span class="p">[</span><span class="n">eligible_idx</span><span class="p">]</span>
+    <span class="n">X_sub</span> <span class="o">=</span> <span class="n">X</span><span class="p">[</span><span class="n">eligible_idx</span><span class="p">]</span> <span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
+    
+    <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;msg&#39;</span><span class="p">:</span>
+        <span class="n">new_p</span><span class="p">,</span> <span class="n">new_c</span><span class="p">,</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">_msg_cluster</span><span class="p">(</span><span class="n">p_sub</span><span class="p">,</span> <span class="n">c_sub</span><span class="p">,</span> <span class="n">X_sub</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">tie_break</span><span class="p">,</span> <span class="n">ratio_metric</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">new_p</span><span class="p">,</span> <span class="n">new_c</span><span class="p">,</span> <span class="n">stats</span> <span class="o">=</span> <span class="n">_sphere_cluster</span><span class="p">(</span><span class="n">p_sub</span><span class="p">,</span> <span class="n">c_sub</span><span class="p">,</span> <span class="n">X_sub</span><span class="p">,</span> <span class="n">radius</span><span class="p">,</span> <span class="n">ratio</span><span class="p">,</span> <span class="n">tie_break</span><span class="p">,</span> <span class="n">min_count_center</span><span class="p">,</span> <span class="n">ratio_metric</span><span class="p">)</span>
+    
+    <span class="n">new_patterns</span> <span class="o">=</span> <span class="n">patterns_str</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">new_patterns</span><span class="p">[</span><span class="n">eligible_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_p</span>
+    <span class="n">remapped</span> <span class="o">=</span> <span class="n">new_patterns</span> <span class="o">!=</span> <span class="n">patterns_str</span>
+    <span class="n">n_remapped</span> <span class="o">=</span> <span class="n">remapped</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+    <span class="n">pct_remapped</span> <span class="o">=</span> <span class="mi">100</span> <span class="o">*</span> <span class="n">n_remapped</span> <span class="o">/</span> <span class="n">n_cells</span>
+    
+    <span class="c1"># Recompute Mahalanobis confidence based on new assignments</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.debarcode</span><span class="w"> </span><span class="kn">import</span> <span class="n">_compute_mahalanobis_confidence</span>
+    <span class="n">barcode_channels</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;barcode_channels&#39;</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="k">if</span> <span class="n">barcode_channels</span> <span class="ow">and</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+        <span class="n">bc_idx</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">barcode_channels</span><span class="p">]</span>
+        <span class="n">X_conf</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">][:,</span> <span class="n">bc_idx</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+        <span class="n">new_confidences</span> <span class="o">=</span> <span class="n">_compute_mahalanobis_confidence</span><span class="p">(</span><span class="n">X_conf</span><span class="p">,</span> <span class="n">new_patterns</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">new_confidences</span> <span class="o">=</span> <span class="n">confidences</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">new_confidences</span><span class="p">[</span><span class="n">eligible_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_c</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Remapped: </span><span class="si">{</span><span class="n">n_remapped</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">n_cells</span><span class="si">}</span><span class="s2"> cells (</span><span class="si">{</span><span class="n">pct_remapped</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_ties&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Ties encountered: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_ties&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, LDA applied: </span><span class="si">{</span><span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_lda&#39;</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="s1">&#39;n_centers&#39;</span> <span class="ow">in</span> <span class="n">stats</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Centers found: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;n_centers&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_assignment&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_patterns</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_confidence&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_confidences</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_remapped&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">remapped</span>
+    
+    <span class="k">if</span> <span class="n">save_results</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s1">&#39;hamming_clustering&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+            <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;hamming_clustering&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+        
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s1">&#39;method&#39;</span><span class="p">:</span> <span class="n">method</span><span class="p">,</span>
+            <span class="s1">&#39;radius&#39;</span><span class="p">:</span> <span class="n">radius</span><span class="p">,</span>
+            <span class="s1">&#39;ratio&#39;</span><span class="p">:</span> <span class="n">ratio</span><span class="p">,</span>
+            <span class="s1">&#39;ratio_metric&#39;</span><span class="p">:</span> <span class="n">ratio_metric</span><span class="p">,</span>
+            <span class="s1">&#39;tie_break&#39;</span><span class="p">:</span> <span class="n">tie_break</span><span class="p">,</span>
+            <span class="s1">&#39;low_conf_perc&#39;</span><span class="p">:</span> <span class="n">low_conf_perc</span><span class="p">,</span>
+            <span class="s1">&#39;min_count_center&#39;</span><span class="p">:</span> <span class="n">min_count_center</span> <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;sphere&#39;</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="s1">&#39;n_eligible&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_eligible</span><span class="p">),</span>
+            <span class="s1">&#39;n_remapped&#39;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_remapped</span><span class="p">),</span>
+            <span class="s1">&#39;pct_remapped&#39;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct_remapped</span><span class="p">),</span>
+            <span class="s1">&#39;output_assignment_col&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_assignment&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;output_confidence_col&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_confidence&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;output_remapped_col&#39;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_remapped&quot;</span><span class="p">,</span>
+            <span class="s1">&#39;n_ties&#39;</span><span class="p">:</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_ties&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="s1">&#39;n_lda&#39;</span><span class="p">:</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_lda&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="s1">&#39;n_stayed&#39;</span><span class="p">:</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_stayed&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+            <span class="s1">&#39;n_moved&#39;</span><span class="p">:</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_moved&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;sphere&#39;</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;n_centers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;n_centers&#39;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;centers&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;centers&#39;</span><span class="p">,</span> <span class="p">[])</span>
+        
+        <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;hamming_clustering&#39;</span><span class="p">][</span><span class="n">assignment_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">metadata</span>
+        <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Clustering saved in adata.uns[&#39;hamming_clustering&#39;][&#39;</span><span class="si">{</span><span class="n">assignment_col</span><span class="si">}</span><span class="s2">&#39;]&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">verbose</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  [+] Results stored in:&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      - adata.obs[&#39;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_assignment&#39;]&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      - adata.obs[&#39;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_confidence&#39;]&quot;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;      - adata.obs[&#39;</span><span class="si">{</span><span class="n">base_name</span><span class="si">}</span><span class="s2">_hamming_remapped&#39;]&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+
+<div class="viewcode-block" id="mahal_conf">
+<a class="viewcode-back" href="../../postprocessing.html#xcode_debarcode.postprocessing.mahal_conf">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">mahal_conf</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>
+               <span class="n">assignment_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+               <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;log&#39;</span><span class="p">,</span>
+               <span class="n">min_cells</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute Mahalanobis-based confidence for pattern assignments.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data object with barcode channels in ``adata.uns[&#39;barcode_channels&#39;]``.</span>
+<span class="sd">    assignment_col : str</span>
+<span class="sd">        Column in ``adata.obs`` containing pattern assignments.</span>
+<span class="sd">    layer : str, default &#39;log&#39;</span>
+<span class="sd">        Layer to use for computing distances.</span>
+<span class="sd">    min_cells : int, default 5</span>
+<span class="sd">        Minimum cells per pattern. Patterns with fewer cells get confidence 0.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ndarray</span>
+<span class="sd">        Confidence scores in [0, 1]. conf = 1/(1 + d²/n_channels) where d² is </span>
+<span class="sd">        squared Mahalanobis distance.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">.debarcode</span><span class="w"> </span><span class="kn">import</span> <span class="n">_compute_mahalanobis_confidence</span>
+    
+    <span class="n">barcode_channels</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;barcode_channels&#39;</span><span class="p">,</span> <span class="p">[])</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">barcode_channels</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No barcode_channels in adata.uns&quot;</span><span class="p">)</span>
+    
+    <span class="n">bc_idx</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">barcode_channels</span><span class="p">]</span>
+    
+    <span class="k">if</span> <span class="n">layer</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">layer</span><span class="p">][:,</span> <span class="n">bc_idx</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">[:,</span> <span class="n">bc_idx</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s1">&#39;toarray&#39;</span><span class="p">):</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+    
+    <span class="n">assignments</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">assignment_col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">_compute_mahalanobis_confidence</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">assignments</span><span class="p">,</span> <span class="n">min_cells</span><span class="o">=</span><span class="n">min_cells</span><span class="p">)</span></div>
+
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

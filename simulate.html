@@ -1,0 +1,222 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>simulate &mdash; xcode_debarcode 0.1.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="_static/mystnb.8ecb98da25f57f5357bf6f572d296f466b2cfe2517ffebfabe82451661e28f02.css" />
+      <link rel="stylesheet" type="text/css" href="_static/custom.css?v=7d9a6eec" />
+
+  
+      <script src="_static/jquery.js?v=5d32c60e"></script>
+      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="_static/documentation_options.js?v=01f34227"></script>
+      <script src="_static/doctools.js?v=9bcbadda"></script>
+      <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="preprocessing" href="preprocessing.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="index.html" class="icon icon-home">
+            xcode_debarcode
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="overview.html">What is xcode_debarcode?</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/basic_usage.html">Basic Usage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/method_comparison.html">Method Comparison</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/hamming_guidelines.html">Hamming Clustering Guidelines</a></li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/simulation.html">Simulation</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">API Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="barcode.html">barcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="debarcode.html">debarcode</a></li>
+<li class="toctree-l1"><a class="reference internal" href="io.html">io</a></li>
+<li class="toctree-l1"><a class="reference internal" href="plots.html">plots</a></li>
+<li class="toctree-l1"><a class="reference internal" href="postprocessing.html">postprocessing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="preprocessing.html">preprocessing</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">simulate</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.simulate.analyze_simulation"><code class="docutils literal notranslate"><span class="pre">analyze_simulation()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="#xcode_debarcode.simulate.simulate_cytof_barcodes"><code class="docutils literal notranslate"><span class="pre">simulate_cytof_barcodes()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="index.html">xcode_debarcode</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">simulate</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/simulate.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="module-xcode_debarcode.simulate">
+<span id="simulate"></span><h1>simulate<a class="headerlink" href="#module-xcode_debarcode.simulate" title="Link to this heading"></a></h1>
+<p>Simulation of synthetic CyTOF barcode data for testing and benchmarking.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.simulate.analyze_simulation">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.simulate.</span></span><span class="sig-name descname"><span class="pre">analyze_simulation</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assignment_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/simulate.html#analyze_simulation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.simulate.analyze_simulation" title="Link to this definition"></a></dt>
+<dd><p>Analyze debarcoding results against ground truth.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>adata</strong> (<em>AnnData</em>) – AnnData with simulation ground truth and debarcoding results.</p></li>
+<li><p><strong>assignment_col</strong> (<em>str</em>) – Column with debarcoding assignments to evaluate.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print statistics.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Performance metrics:</p>
+<ul class="simple">
+<li><p>accuracy : fraction of valid assignments that are correct</p></li>
+<li><p>coverage : fraction of cells with valid assignments</p></li>
+<li><p>f1 : harmonic mean of accuracy and coverage</p></li>
+<li><p>n_cells : total number of cells</p></li>
+<li><p>n_barcoded : number of barcoded cells</p></li>
+<li><p>n_valid_assigned : number of cells with valid assignments</p></li>
+<li><p>n_correct : number of correct assignments</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If adata lacks simulation metadata or required columns.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">results</span> <span class="o">=</span> <span class="n">analyze_simulation</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="s1">&#39;pc_gmm_assignment&#39;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Accuracy: </span><span class="si">{</span><span class="n">results</span><span class="p">[</span><span class="s1">&#39;accuracy&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2%</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="xcode_debarcode.simulate.simulate_cytof_barcodes">
+<span class="sig-prename descclassname"><span class="pre">xcode_debarcode.simulate.</span></span><span class="sig-name descname"><span class="pre">simulate_cytof_barcodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_cells</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">27</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_barcodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_params</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_error_rate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unbarcoded_fraction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">alpha</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/xcode_debarcode/simulate.html#simulate_cytof_barcodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#xcode_debarcode.simulate.simulate_cytof_barcodes" title="Link to this definition"></a></dt>
+<dd><p>Simulate synthetic CyTOF barcode data.</p>
+<p>Generates CyTOF barcode data with known ground truth for testing
+and benchmarking debarcoding methods.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>n_cells</strong> (<em>int</em><em>, </em><em>default 10000</em>) – Total number of cells to simulate.</p></li>
+<li><p><strong>n_channels</strong> (<em>int</em><em>, </em><em>default 27</em>) – Number of barcode channels. Must be a multiple of 9.</p></li>
+<li><p><strong>n_barcodes</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of unique barcodes to use. If None, randomly selected.</p></li>
+<li><p><strong>channel_params</strong> (<em>dict</em><em>, </em><em>optional</em>) – Custom channel parameters for simulation. If None, randomly generated.</p></li>
+<li><p><strong>target_error_rate</strong> (<em>float</em><em>, </em><em>default 0.05</em>) – Target mean per-channel error rate (probability of a sample falling
+on the wrong side of the GMM decision boundary). Only used when
+channel_params is None. Separation is calibrated to achieve this
+error rate on average, with per-channel variation.
+Typical values: 0.01-0.15.</p></li>
+<li><p><strong>unbarcoded_fraction</strong> (<em>float</em><em>, </em><em>default 0.0</em>) – Fraction of cells without barcode (in [0, 1)). Unbarcoded cells
+are generated with background-level intensities (mean ~0 in log scale)
+across all channels.</p></li>
+<li><p><strong>alpha</strong> (<em>float</em><em>, </em><em>default 1.0</em>) – Dirichlet concentration parameter for barcode distribution.</p></li>
+<li><p><strong>random_seed</strong> (<em>int</em><em>, </em><em>optional</em>) – Random seed for reproducibility.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>default True</em>) – Print progress messages.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p>Simulated raw intensity data with ground truth:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">adata.obs['ground_truth_pattern']</span></code>: true barcode patterns</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adata.obs['ground_truth_barcode']</span></code>: true barcode labels</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adata.obs['is_barcoded']</span></code>: whether cell has a barcode</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">adata.uns['simulation']</span></code>: simulation parameters and statistics</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>AnnData</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If n_channels is not a multiple of 9 or unbarcoded_fraction is invalid.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">adata</span> <span class="o">=</span> <span class="n">simulate_cytof_barcodes</span><span class="p">(</span><span class="n">n_cells</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">n_channels</span><span class="o">=</span><span class="mi">18</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">adata</span> <span class="o">=</span> <span class="n">simulate_cytof_barcodes</span><span class="p">(</span><span class="n">n_cells</span><span class="o">=</span><span class="mi">50000</span><span class="p">,</span> <span class="n">random_seed</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">adata</span> <span class="o">=</span> <span class="n">simulate_cytof_barcodes</span><span class="p">(</span><span class="n">target_error_rate</span><span class="o">=</span><span class="mf">0.10</span><span class="p">)</span>  <span class="c1"># 10% error</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="preprocessing.html" class="btn btn-neutral float-left" title="preprocessing" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2025, Marwane Bourdim.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

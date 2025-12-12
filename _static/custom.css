@@ -1,0 +1,11 @@
+/* Fix for crowded Plotly subplots (e.g., channel intensities) */
+/* Apply only to cells marked with :tags: [wide-plot] */
+
+.tag_wide-plot .cell_output {
+    overflow-x: auto;
+    overflow-y: visible;
+}
+
+.tag_wide-plot .cell_output .plotly-graph-div {
+    min-width: 1200px !important;
+}
