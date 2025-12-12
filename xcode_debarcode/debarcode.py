@@ -4,7 +4,6 @@ import anndata as ad
 import warnings
 from typing import Optional, List, Dict, Tuple, Union
 from sklearn.mixture import GaussianMixture
-from sklearn.decomposition import PCA
 from .barcode import _generate_4_of_9_patterns
 
 __all__ = ["debarcode", "debarcoding_pipeline"]
@@ -262,128 +261,6 @@ def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tup
     return barcodes, confidences, channel_params
 
 
-def _centroid_to_pattern(centroid: np.ndarray, n_blocks: int) -> np.ndarray:
-    """Convert cluster centroid to valid 4-of-9 pattern per block."""
-    D = len(centroid)
-    pattern = np.zeros(D, dtype=np.int8)
-    for b in range(n_blocks):
-        start, end = b * 9, (b + 1) * 9
-        top4 = np.argsort(centroid[start:end])[-4:]
-        pattern[start:end][top4] = 1
-    return pattern
-
-
-def _select_k_kneedle(ks: np.ndarray, bics: np.ndarray) -> int:
-    """Select K using Kneedle algorithm (point furthest from diagonal)."""
-    from kneed import KneeLocator
-    kl = KneeLocator(ks, bics, curve='convex', direction='decreasing')
-    return kl.elbow if kl.elbow is not None else ks[np.argmin(bics)]
-
-
-def _gmm_bic(X: np.ndarray, 
-             max_components: int = 30,
-             n_components: Optional[int] = None,
-             n_pca: Optional[int] = None,
-             k_selection: str = 'bic',
-             verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """GMM-BIC: Cluster-based debarcoding for low barcode regimes."""
-    n_cells, n_channels = X.shape
-    n_blocks = n_channels // 9
-    
-    if n_pca is None:
-        n_pca = n_blocks * 4
-    n_pca = min(n_pca, n_channels - 1, n_cells - 1)
-    
-    if verbose:
-        print(f"GMM-BIC: Processing {n_channels} channels, {n_cells} cells")
-        print(f"  PCA components: {n_pca}, K selection: {k_selection}")
-    
-    pca = PCA(n_components=n_pca)
-    X_pca = pca.fit_transform(X)
-    var_explained = pca.explained_variance_ratio_.sum()
-    
-    if verbose:
-        print(f"  PCA variance explained: {var_explained*100:.1f}%")
-    
-    if n_components is not None:
-        best_k = n_components
-        bic_values = []
-    else:
-        ks, bics = [], []
-        for k in range(2, max_components + 1):
-            try:
-                gmm = GaussianMixture(n_components=k, covariance_type='diag',
-                                      random_state=42, n_init=3, max_iter=300, reg_covar=1e-6)
-                gmm.fit(X_pca)
-                ks.append(k)
-                bics.append(gmm.bic(X_pca))
-            except:
-                continue
-        
-        if len(ks) < 2:
-            raise ValueError("GMM fitting failed for all K values")
-        
-        ks, bics = np.array(ks), np.array(bics)
-        bic_values = list(zip(ks.tolist(), bics.tolist()))
-        
-        if k_selection == 'kneedle':
-            best_k = _select_k_kneedle(ks, bics)
-        else:
-            best_k = ks[np.argmin(bics)]
-        
-        if verbose:
-            print(f"  K selected: {best_k}")
-    
-    gmm = GaussianMixture(n_components=best_k, covariance_type='diag',
-                          random_state=42, n_init=5, max_iter=300, reg_covar=1e-6)
-    gmm.fit(X_pca)
-    
-    labels = gmm.predict(X_pca)
-    probs = gmm.predict_proba(X_pca)
-    
-    cluster_patterns = {}
-    for label in range(best_k):
-        mask = labels == label
-        if mask.sum() > 0:
-            centroid = X[mask].mean(axis=0)
-            cluster_patterns[label] = _centroid_to_pattern(centroid, n_blocks)
-    
-    barcodes = np.zeros((n_cells, n_channels), dtype=np.int8)
-    confidences = np.zeros(n_cells)
-    
-    pattern_to_clusters = {}
-    for label, pattern in cluster_patterns.items():
-        pattern_str = ''.join(map(str, pattern))
-        if pattern_str not in pattern_to_clusters:
-            pattern_to_clusters[pattern_str] = []
-        pattern_to_clusters[pattern_str].append(label)
-    
-    for i in range(n_cells):
-        assigned_pattern = cluster_patterns[labels[i]]
-        pattern_str = ''.join(map(str, assigned_pattern))
-        barcodes[i] = assigned_pattern
-        confidences[i] = probs[i, pattern_to_clusters[pattern_str]].sum()
-    
-    if verbose:
-        n_patterns = len(pattern_to_clusters)
-        print(f"GMM-BIC: Complete. K={best_k}, unique patterns={n_patterns}, mean confidence={confidences.mean():.4f}")
-    
-    params = {
-        'method': 'gmm_bic',
-        'n_pca': n_pca,
-        'var_explained': float(var_explained),
-        'k_selection': k_selection,
-        'k_selected': best_k,
-        'max_components': max_components,
-        'bic_values': bic_values if n_components is None else None,
-        'n_unique_patterns': len(pattern_to_clusters),
-        'cluster_patterns': {k: ''.join(map(str, v)) for k, v in cluster_patterns.items()},
-        'pattern_to_clusters': pattern_to_clusters
-    }
-    
-    return barcodes, confidences, params
-
-
 def debarcode(adata: ad.AnnData,
              method: str = 'pc_gmm',
              layer: Optional[str] = None,
@@ -392,10 +269,6 @@ def debarcode(adata: ad.AnnData,
              prob_thresh: float = 0.5,
              n_iter: int = 2,
              thresholds: Optional[List[float]] = None,
-             max_components: int = 30,
-             n_components: Optional[int] = None,
-             n_pca: Optional[int] = None,
-             k_selection: str = 'bic',
              method_name: Optional[str] = None,
              save_raw_score: bool = False,
              inplace: bool = True,
@@ -405,40 +278,34 @@ def debarcode(adata: ad.AnnData,
     Parameters
     ----------
     adata : AnnData
-        Annotated data object.
-    method : {'gmm', 'premessa', 'pc_gmm', 'gmm_bic', 'manual'}, default 'pc_gmm'
+        Annotated data object with mapped barcode channels.
+    method : {'gmm', 'premessa', 'pc_gmm', 'manual'}, default 'pc_gmm'
         Debarcoding method:
         
-        - 'gmm': Gaussian Mixture Model per channel
-        - 'premessa': Iterative top-4 selection per block
-        - 'pc_gmm': Pattern-Constrained GMM
-        - 'gmm_bic': Cluster-based GMM for low barcode regimes
-        - 'manual': Fixed thresholds
+        - ``'pc_gmm'``: Pattern-Constrained GMM (recommended for most datasets)
+        - ``'premessa'``: Iterative top-4 selection per block (for unimodal regime)
+        - ``'gmm'``: Gaussian Mixture Model per channel (exploration only; assignments not constrained to valid patterns)
+        - ``'manual'``: Fixed thresholds
     layer : str, optional
         Layer to use for debarcoding. Recommend using transformed layer.
     n_init : int, default 5
-        GMM initializations (for gmm/pc_gmm).
+        Number of GMM initializations per channel.
+        *Used by: gmm, pc_gmm.*
     min_int : float, default 0.1
         Minimum intensity for GMM fitting.
+        *Used by: gmm, pc_gmm.*
     prob_thresh : float, default 0.5
-        GMM probability threshold (for 'gmm' method).
+        Probability threshold for ON classification.
+        *Used by: gmm.*
     n_iter : int, default 2
-        Normalization iterations (for 'premessa' method).
+        Number of normalization iterations.
+        *Used by: premessa.*
     thresholds : list of float, optional
-        Manual thresholds for 'manual' method (one per channel).
-    max_components : int, default 30
-        Maximum GMM components to test (for 'gmm_bic' method).
-    n_components : int, optional
-        Fixed number of GMM components (for 'gmm_bic' method). If provided,
-        skips automatic K selection.
-    n_pca : int, optional
-        Number of PCA components (for 'gmm_bic' method). Default: n_blocks * 4.
-    k_selection : {'bic', 'kneedle'}, default 'bic'
-        K selection method (for 'gmm_bic'): 'bic' minimizes BIC, 'kneedle'
-        finds elbow in BIC curve.
+        Manual thresholds (one per channel). Required for ``'manual'`` method.
+        *Used by: manual.*
     method_name : str, optional
         Custom name for this debarcoding run. If None, uses method name
-        and auto-increments if exists (e.g., 'pc_gmm', 'pc_gmm_1').
+        and auto-increments if exists (e.g., ``'pc_gmm'``, ``'pc_gmm_1'``).
     save_raw_score : bool, default False
         If True, save raw method score to ``adata.obs['{method_name}_score_raw']``.
     inplace : bool, default True
@@ -460,8 +327,6 @@ def debarcode(adata: ad.AnnData,
     --------
     >>> adata = debarcode(adata, method='pc_gmm', layer='log')
     >>> adata = debarcode(adata, method='premessa', layer='log')
-    >>> adata = debarcode(adata, method='gmm_bic', layer='log', max_components=20)
-    >>> adata = debarcode(adata, method='gmm_bic', layer='log', n_components=5)
     >>> adata = debarcode(adata, method='manual', thresholds=[1.5]*27)
     """
     from .io import get_barcode_channels
@@ -488,7 +353,6 @@ def debarcode(adata: ad.AnnData,
         'gmm': lambda: (_gmm(X, n_init, min_int, prob_thresh, verbose), None),
         'premessa': lambda: (_premessa(X, n_iter, verbose=verbose), None),
         'pc_gmm': lambda: (_pc_gmm(X, n_init, min_int, verbose), None),
-        'gmm_bic': lambda: (_gmm_bic(X, max_components, n_components, n_pca, k_selection, verbose), None),
     }
     
     if method == 'manual' and thresholds is None:
@@ -545,18 +409,6 @@ def debarcode(adata: ad.AnnData,
         'channel_params': channel_params
     }
     
-    if method == 'gmm_bic':
-        metadata.update({
-            'max_components': channel_params.get('max_components'),
-            'n_components': n_components,
-            'n_pca': channel_params.get('n_pca'),
-            'var_explained': channel_params.get('var_explained'),
-            'k_selection': channel_params.get('k_selection'),
-            'k_selected': channel_params.get('k_selected'),
-            'bic_values': channel_params.get('bic_values'),
-            'n_unique_patterns': channel_params.get('n_unique_patterns'),
-        })
-    
     adata.uns['debarcoding'][final_method_name] = metadata
     
     if verbose:
@@ -577,10 +429,6 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         prob_thresh: float = 0.5,
                         n_iter: int = 2,
                         thresholds: Optional[List[float]] = None,
-                        max_components: int = 30,
-                        n_components: Optional[int] = None,
-                        n_pca: Optional[int] = None,
-                        k_selection: str = 'bic',
                         # Intensity filtering
                         apply_intensity_filter: bool = True,
                         intensity_method: str = 'rectangular',
@@ -598,87 +446,78 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         hamming_ratio_metric: str = 'count',
                         hamming_tie_break: str = 'lda',
                         hamming_low_conf_perc: Optional[float] = None,
-                        # Pattern filtering
-                        apply_pattern_filter: bool = True,
-                        pattern_filter_metric: str = 'median_conf',
-                        pattern_filter_method: str = 'percentile',
-                        pattern_filter_value: float = 90,
-                        pattern_filter_exclude_remapped: bool = True,
-                        pattern_filter_or_flag: str = 'flag',
+                        # Confidence filtering
+                        apply_confidence_filter: bool = True,
+                        confidence_filter_method: str = 'percentile',
+                        confidence_value: float = 90,
+                        confidence_filter_or_flag: str = 'flag',
                         inplace: bool = True,
                         verbose: bool = True) -> ad.AnnData:
     """Complete debarcoding pipeline with transformation and postprocessing.
+    
+    Runs the full debarcoding workflow: transformation → intensity filtering →
+    debarcoding → Hamming clustering → confidence filtering.
     
     Parameters
     ----------
     adata : AnnData
         Annotated data object with mapped barcode channels.
-    method : str, default 'pc_gmm'
-        Debarcoding method: 'gmm', 'premessa', 'pc_gmm', 'gmm_bic', 'manual'.
-    transform_method : str, default 'log'
-        Transformation: 'log' or 'arcsinh'.
+    
+    transform_method : {'log', 'arcsinh'}, default 'log'
+        Transformation method to apply.
     cofactor : float, default 10.0
         Cofactor for arcsinh transformation.
-    n_init : int, default 5
-        GMM initializations for gmm/pc_gmm.
-    min_int : float, default 0.1
-        Minimum intensity for GMM fitting.
-    prob_thresh : float, default 0.5
-        GMM probability threshold for 'gmm' method.
-    n_iter : int, default 2
-        Normalization iterations for 'premessa' method.
-    thresholds : list of float, optional
-        Manual thresholds for 'manual' method (one per channel).
-    max_components : int, default 30
-        Maximum GMM components to test (for 'gmm_bic' method).
-    n_components : int, optional
-        Fixed number of GMM components (for 'gmm_bic' method).
-    n_pca : int, optional
-        Number of PCA components (for 'gmm_bic' method). Default: n_blocks * 4.
-    k_selection : {'bic', 'kneedle'}, default 'bic'
-        K selection method (for 'gmm_bic').
-    apply_intensity_filter : bool, default False
-        Apply intensity filtering before debarcoding.
-    intensity_method : str, default 'rectangular'
-        Intensity filter method: 'rectangular' or 'ellipsoidal'.
+    apply_intensity_filter : bool, default True
+        Whether to apply intensity filtering.
+    intensity_method : {'rectangular', 'ellipsoidal'}, default 'rectangular'
+        Filtering method.
     intensity_percentile : float, default 99.0
-        For 'ellipsoidal': percentile threshold.
+        For ``'ellipsoidal'``: percentile threshold.
     intensity_sum_low : float, optional, default 1.0
-        For 'rectangular': lower percentile for channel sum.
+        For ``'rectangular'``: lower percentile for channel sum.
     intensity_sum_high : float, optional, default 99.0
-        For 'rectangular': upper percentile for channel sum.
+        For ``'rectangular'``: upper percentile for channel sum.
     intensity_var_low : float, optional, default 1.0
-        For 'rectangular': lower percentile for channel variance.
+        For ``'rectangular'``: lower percentile for channel variance.
     intensity_var_high : float, optional, default 99.0
-        For 'rectangular': upper percentile for channel variance.
-    intensity_filter_or_flag : str, default 'filter'
-        'filter' to remove cells or 'flag' to mark.
+        For ``'rectangular'``: upper percentile for channel variance.
+    intensity_filter_or_flag : {'filter', 'flag'}, default 'filter'
+        ``'filter'`` to remove cells or ``'flag'`` to mark.
+    method : {'gmm', 'premessa', 'pc_gmm', 'manual'}, default 'pc_gmm'
+        Debarcoding method. PC-GMM recommended for most datasets (bimodal regime).
+        PreMessa for unimodal regime. GMM for exploration only (assignments not constrained to valid patterns).
+    n_init : int, default 5
+        GMM initializations. *Used by: gmm, pc_gmm.*
+    min_int : float, default 0.1
+        Minimum intensity for GMM fitting. *Used by: gmm, pc_gmm.*
+    prob_thresh : float, default 0.5
+        Probability threshold. *Used by: gmm.*
+    n_iter : int, default 2
+        Normalization iterations. *Used by: premessa.*
+    thresholds : list of float, optional
+        Manual thresholds. *Used by: manual.*
     apply_hamming : bool, default True
-        Apply Hamming clustering.
-    hamming_method : str, default 'msg'
-        Hamming method: 'msg' or 'sphere'.
+        Whether to apply Hamming clustering.
+    hamming_method : {'msg', 'sphere'}, default 'msg'
+        Clustering method.
     hamming_radius : int, default 2
         Max Hamming distance for neighbor search.
     hamming_ratio : float, default 15.0
         Minimum ratio for remapping valid patterns.
-    hamming_ratio_metric : str, default 'count'
-        Ratio metric: 'count' or 'score'.
-    hamming_tie_break : str, default 'lda'
-        Tie-break method: 'no_remap', 'count', or 'lda'.
+    hamming_ratio_metric : {'count', 'score'}, default 'count'
+        Ratio metric.
+    hamming_tie_break : {'no_remap', 'count', 'lda'}, default 'lda'
+        Tie-break method.
     hamming_low_conf_perc : float, optional
-        Only remap bottom N% confidence cells. Default: None (all).
-    apply_pattern_filter : bool, default True
-        Apply pattern-based filtering after hamming.
-    pattern_filter_metric : str, default 'median_conf'
-        Pattern metric: 'count', 'median_conf', or 'score'.
-    pattern_filter_method : str, default 'percentile'
-        Filter method: 'threshold' or 'percentile'.
-    pattern_filter_value : float, default 90
+        Only remap bottom N% confidence cells.
+    apply_confidence_filter : bool, default True
+        Whether to apply confidence-based filtering.
+    confidence_filter_method : {'threshold', 'percentile'}, default 'percentile'
+        Filtering method.
+    confidence_value : float, default 90
         Threshold or percentile value.
-    pattern_filter_exclude_remapped : bool, default True
-        Exclude remapped cells from metric calculation.
-    pattern_filter_or_flag : str, default 'flag'
-        'flag' to mark or 'filter' to remove cells.
+    confidence_filter_or_flag : {'flag', 'filter'}, default 'flag'
+        ``'flag'`` to mark or ``'filter'`` to remove cells.
     inplace : bool, default True
         Modify adata in place.
     verbose : bool, default True
@@ -692,7 +531,6 @@ def debarcoding_pipeline(adata: ad.AnnData,
     Examples
     --------
     >>> adata = debarcoding_pipeline(adata, method='pc_gmm')
-    >>> adata = debarcoding_pipeline(adata, method='gmm_bic', max_components=20)
     >>> adata = debarcoding_pipeline(adata, method='pc_gmm', apply_hamming=False)
     """
     from .io import get_barcode_channels
@@ -741,9 +579,7 @@ def debarcoding_pipeline(adata: ad.AnnData,
         print(f"\nStep {step}: Debarcoding")
     adata = debarcode(adata, method=method, layer=layer_name, n_init=n_init,
                       min_int=min_int, prob_thresh=prob_thresh, n_iter=n_iter,
-                      thresholds=thresholds, max_components=max_components,
-                      n_components=n_components, n_pca=n_pca, k_selection=k_selection,
-                      verbose=verbose)
+                      thresholds=thresholds, verbose=verbose)
     step += 1
     
     method_name = list(adata.uns['debarcoding'].keys())[-1]
@@ -771,22 +607,17 @@ def debarcoding_pipeline(adata: ad.AnnData,
         remapped_col = f'{method_name}_hamming_remapped'
         step += 1
     
-    # Step 5: Pattern filtering
-    if apply_pattern_filter:
+    # Step 5: Confidence filtering
+    if apply_confidence_filter:
         if verbose:
-            print(f"\nStep {step}: Pattern filtering")
+            print(f"\nStep {step}: Confidence filtering")
         
-        exclude_col = remapped_col if (apply_hamming and pattern_filter_exclude_remapped) else None
-        
-        adata = postprocessing.filter_pattern(
+        adata = postprocessing.filter_cells_conf(
             adata,
-            assignment_col=assignment_col,
             confidence_col=confidence_col,
-            metric=pattern_filter_metric,
-            method=pattern_filter_method,
-            value=pattern_filter_value,
-            exclude=exclude_col,
-            filter_or_flag=pattern_filter_or_flag,
+            method=confidence_filter_method,
+            value=confidence_value,
+            filter_or_flag=confidence_filter_or_flag,
             verbose=verbose
         )
     
@@ -798,8 +629,8 @@ def debarcoding_pipeline(adata: ad.AnnData,
         print(f"Final confidence: {confidence_col}")
         if apply_intensity_filter and intensity_filter_or_flag == 'flag':
             print(f"Intensity filter flag: adata.obs['intensity_pass']")
-        if apply_pattern_filter and pattern_filter_or_flag == 'flag':
-            base_name = assignment_col.rsplit('_', 1)[0] if '_' in assignment_col else assignment_col
-            print(f"Pattern filter flag: adata.obs['{base_name}_pattern_pass']")
+        if apply_confidence_filter and confidence_filter_or_flag == 'flag':
+            base_name = confidence_col.rsplit('_', 1)[0] if '_' in confidence_col else confidence_col
+            print(f"Confidence filter flag: adata.obs['{base_name}_pass']")
     
     return adata
