@@ -2,7 +2,7 @@
 
 Multi-method CyTOF barcode debarcoding with pattern-constrained GMM, adaptive filtering, and interactive visualisations.
 
-**[Full Documentation & Tutorials](https://icr-data-science.github.io/xcode_debarcode/)**
+**[Full documentation and tutorials](https://icr-data-science.github.io/xcode_debarcode/)**
 
 ## Installing xcode_debarcode
 
