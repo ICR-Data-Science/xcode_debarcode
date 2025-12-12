@@ -36,28 +36,27 @@ def plot_intensity_scatter(adata: ad.AnnData,
     ----------
     adata : AnnData
         Annotated data object with mapped barcode channels.
-    layer : str, optional
-        Data layer to use. None for adata.X. Default: 'log'.
-    method : str, optional
-        Filter method to preview: 'rectangular', 'ellipsoidal', or None.
-        If None, shows raw scatter without filtering. Default: None.
-    percentile : float
-        For 'ellipsoidal' method, percentile threshold. Default: 95.0.
-    sum_low : float, optional
-        For 'rectangular': lower percentile bound for channel sum. Default: 1.0.
-    sum_high : float, optional
-        For 'rectangular': upper percentile bound for channel sum. Default: 99.0.
-    var_low : float, optional
-        For 'rectangular': lower percentile bound for channel variance. Default: 1.0.
-    var_high : float, optional
-        For 'rectangular': upper percentile bound for channel variance. Default: 99.0.
-    subsample : int, optional
-        Max cells to plot (for performance). None for all. Default: 50000.
+    layer : str, optional, default 'log'
+        Data layer to use. None for ``adata.X``.
+    method : {'rectangular', 'ellipsoidal'}, optional
+        Filter method to preview. If None, shows raw scatter without filtering.
+    percentile : float, default 99.0
+        For ``'ellipsoidal'`` method, percentile threshold.
+    sum_low : float, optional, default 1.0
+        For ``'rectangular'``: lower percentile bound for channel sum.
+    sum_high : float, optional, default 99.0
+        For ``'rectangular'``: upper percentile bound for channel sum.
+    var_low : float, optional, default 1.0
+        For ``'rectangular'``: lower percentile bound for channel variance.
+    var_high : float, optional, default 99.0
+        For ``'rectangular'``: upper percentile bound for channel variance.
+    subsample : int, optional, default 50000
+        Max cells to plot (for performance). None for all.
     
     Returns
     -------
-    fig : plotly Figure
-        Interactive scatter plot.
+    Figure
+        Interactive Plotly scatter plot.
     """
     if method is not None and method not in {'rectangular', 'ellipsoidal'}:
         raise ValueError(f"method must be 'rectangular', 'ellipsoidal', or None, got {method!r}")
@@ -208,21 +207,21 @@ def plot_barcode_rank_histogram(adata: ad.AnnData,
     assignment_col : str
         Column name with barcode assignments (string patterns).
     confidence_col : str, optional
-        Column name with confidence scores. Required for metric='median_conf' or 'score'.
-    metric : str
-        Metric to rank and display: 'count', 'median_conf', or 'score' (count * median_conf).
-        Default: 'count'.
-    top_n : int
-        Number of top patterns to show. Default: 20.
-    min_metric : float
-        Minimum metric value to include pattern. Default: 1.
-    valid_only : bool
-        Only show valid patterns. Default: False.
+        Column name with confidence scores. Required for ``metric='median_conf'``
+        or ``'score'``.
+    metric : {'count', 'median_conf', 'score'}, default 'count'
+        Metric to rank and display.
+    top_n : int, default 20
+        Number of top patterns to show.
+    min_metric : float, default 0
+        Minimum metric value to include pattern.
+    valid_only : bool, default False
+        Only show valid patterns.
     
     Returns
     -------
-    fig : plotly Figure
-        Interactive bar chart.
+    Figure
+        Interactive Plotly bar chart.
     """
     from .barcode import is_valid_pattern
     
@@ -350,20 +349,20 @@ def plot_cumul_barcode_rank(adata: ad.AnnData,
     assignment_col : str
         Column name with barcode assignments (string patterns).
     confidence_col : str, optional
-        Column name with confidence scores. Required for metric='score'.
-    metric : str
-        Metric to rank by: 'count' or 'score' (count * median_conf). Default: 'count'.
-    valid_only : bool
-        Only include valid patterns. Default: False.
-    normalize : bool
-        Normalize cumulative sum to [0, 1]. Default: True.
-    log_x : bool
-        Use log scale for x-axis. Default: True.
+        Column name with confidence scores. Required for ``metric='score'``.
+    metric : {'count', 'score'}, default 'count'
+        Metric to rank by: ``'count'`` or ``'score'`` (count * median_conf).
+    valid_only : bool, default False
+        Only include valid patterns.
+    normalize : bool, default True
+        Normalize cumulative sum to [0, 1].
+    log_x : bool, default True
+        Use log scale for x-axis.
     
     Returns
     -------
-    fig : plotly Figure
-        Interactive cumulative rank curve.
+    Figure
+        Interactive Plotly cumulative rank curve.
     """
     from .barcode import is_valid_pattern
     
@@ -458,47 +457,35 @@ def plot_channel_intensities(adata: ad.AnnData,
     Creates interactive histograms for barcode channel intensities.
     Can overlay learned parameters from debarcoding methods.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     channels : list of str, optional
         Specific channels to visualize. If None, shows all barcode channels.
     layer : str, optional
-        Layer to use for visualization. If None, uses .X (raw data).
-        If using a transformed layer (e.g., 'log', 'arcsinh_cf5'), 
-        set log_scale_x=False since data is already transformed.
+        Layer to use for visualization. If None, uses ``.X`` (raw data).
+        If using a transformed layer (e.g., ``'log'``, ``'arcsinh_cf5'``), 
+        set ``log_scale_x=False`` since data is already transformed.
     show_method_data : str, optional
-        Name of debarcoding result from adata.uns['debarcoding'] to visualize.
-        This is the method_name used when calling debarcode().
-        
-        Shows overlays based on the method:
-        - GMM: OFF/ON means (red/green) + threshold (yellow)
-        - PC-GMM: OFF/ON means (red/green)
-        - Manual: threshold (yellow)
-        - Auto -> PC-GMM: OFF/ON means (red/green)
-        - Auto -> Scoring: no overlays
-        - PreMessa/Scoring: no overlays
-    log_scale_x : bool
-        Use log scale for x-axis (default: True).
-        Set to False when using transformed layers.
-    log_scale_y : bool
-        Use log scale for y-axis (default: False)
-    bins : int
-        Number of histogram bins (default: 250)
+        Name of debarcoding result from ``adata.uns['debarcoding']`` to visualize.
+        Shows overlays based on the method (GMM means, thresholds, etc.).
+    log_scale_x : bool, default True
+        Use log scale for x-axis. Set to False when using transformed layers.
+    log_scale_y : bool, default False
+        Use log scale for y-axis.
+    bins : int, default 250
+        Number of histogram bins.
     xlim : tuple, optional
-        X-axis limits as (xmin, xmax) in the data space (layer or raw).
-        Supports partial specification:
-        - None: automatic (uses xlim_percentile)
-        - (xmin, xmax): both limits fixed
-        - (None, xmax): automatic min, fixed max
-        - (xmin, None): fixed min, automatic max
-    xlim_percentile : tuple
-        Percentile range for automatic limits (default: (0.1, 99.9))
+        X-axis limits as ``(xmin, xmax)``. Supports partial specification
+        with None for automatic limits.
+    xlim_percentile : tuple, default (0.1, 99.9)
+        Percentile range for automatic limits.
     
-    Returns:
-    --------
-    fig : Interactive plotly figure
+    Returns
+    -------
+    Figure
+        Interactive Plotly figure with channel histograms.
     """
     
     from .io import get_barcode_channels
@@ -747,23 +734,22 @@ def plot_confidence_distribution(adata: ad.AnnData,
     """Plot interactive confidence score distribution.
     
     Creates an interactive histogram of confidence scores.
-    Shows the specified threshold if provided.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     confidence_col : str
-        Name of confidence column in adata.obs
-    bins : int
-        Number of histogram bins (default: 100)
-    show_threshold : str
-        Filter name to display threshold line for (default: None)
+        Name of confidence column in ``adata.obs``.
+    bins : int, default 100
+        Number of histogram bins.
+    show_threshold : str, optional
+        Filter name to display threshold line for.
     
-    Returns:
-    --------
-    fig : plotly Figure
-        Interactive figure with hover-enabled histogram
+    Returns
+    -------
+    Figure
+        Interactive Plotly histogram.
     """
     if confidence_col not in adata.obs.columns:
         raise ValueError(f"Confidence column '{confidence_col}' not found in adata.obs")
@@ -863,34 +849,34 @@ def plot_hamming_graph(adata: ad.AnnData,
     connected by Hamming distance. Node size represents pattern frequency,
     color represents confidence or validity.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     assignment_col : str
-        Column name with barcode assignments (string patterns)
+        Column name with barcode assignments (string patterns).
     confidence_col : str, optional
         Column name with confidence scores. If provided, colors nodes by
         mean confidence. If None, colors by validity (green=valid, red=invalid).
-    radius : int
-        Exact Hamming distance for edges (default: 2)
-    min_count : int
-        Minimum count for patterns to include (default: 50)
-    valid_only : bool
-        Only show valid patterns (default: True)
-    layout : str
-        Layout algorithm: 'spring', 'circular', 'kamada_kawai' (default: 'spring')
-    node_size_min : float
-        Minimum node size (default: 5.0)
-    node_size_max : float
-        Maximum node size (default: 200.0)
-    size_transform : str
-        Size transformation: 'sqrt', 'log', or 'linear' (default: 'sqrt')
+    radius : int, default 2
+        Exact Hamming distance for edges.
+    min_count : int, default 50
+        Minimum count for patterns to include.
+    valid_only : bool, default True
+        Only show valid patterns.
+    layout : {'spring', 'circular', 'kamada_kawai'}, default 'spring'
+        Layout algorithm.
+    node_size_min : float, default 5.0
+        Minimum node size.
+    node_size_max : float, default 200.0
+        Maximum node size.
+    size_transform : {'sqrt', 'log', 'linear'}, default 'sqrt'
+        Size transformation for node counts.
     
-    Returns:
-    --------
-    fig : plotly Figure
-        Interactive network graph with zoom/pan
+    Returns
+    -------
+    Figure
+        Interactive Plotly network graph.
     """
     try:
         import networkx as nx
@@ -1061,29 +1047,28 @@ def plot_hamming_heatmap(adata: ad.AnnData,
     Creates a heatmap showing pairwise Hamming distances between patterns.
     Patterns can be clustered to group similar patterns together.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     assignment_col : str
-        Column name with barcode assignments (string patterns)
-    hamming_radius : int
-        Maximum Hamming distance to display (default: 2).
-        Distances > radius shown as white.
-    valid_only : bool
-        Only show valid patterns (default: True)
-    min_count : int
-        Minimum count for patterns to include (default: 50)
-    cluster_patterns : bool
-        Cluster patterns by Hamming distance (default: True)
-    use_rank_labels : bool
-        Use rank numbers (#1, #2, ...) instead of full pattern on axes (default: True).
+        Column name with barcode assignments (string patterns).
+    hamming_radius : int, default 2
+        Maximum Hamming distance to display. Distances > radius shown as white.
+    valid_only : bool, default True
+        Only show valid patterns.
+    min_count : int, default 50
+        Minimum count for patterns to include.
+    cluster_patterns : bool, default True
+        Cluster patterns by Hamming distance.
+    use_rank_labels : bool, default True
+        Use rank numbers (#1, #2, ...) instead of full pattern on axes.
         Makes heatmap more readable with many patterns.
     
-    Returns:
-    --------
-    fig : plotly Figure
-        Interactive heatmap
+    Returns
+    -------
+    Figure
+        Interactive Plotly heatmap.
     """
     from collections import Counter
     from .barcode import is_valid_pattern

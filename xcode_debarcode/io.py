@@ -10,15 +10,15 @@ __all__ = ["read_data", "write_data", "map_channels", "get_barcode_channels"]
 def read_data(path: str) -> ad.AnnData:
     """Read data from FCS or H5AD file.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     path : str
-        Path to the data file (.h5ad or .fcs)
+        Path to the data file (.h5ad or .fcs).
     
-    Returns:
-    --------
-    adata : AnnData
-        Loaded data as AnnData object
+    Returns
+    -------
+    AnnData
+        Loaded data as AnnData object.
     """
     path = Path(path)
     
@@ -43,14 +43,14 @@ def read_data(path: str) -> ad.AnnData:
 def write_data(adata: ad.AnnData, path: str, **kwargs):
     """Write data to FCS or H5AD file.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     path : str
-        Output file path (.h5ad or .fcs)
+        Output file path (.h5ad or .fcs).
     **kwargs
-        Additional arguments passed to write function
+        Additional arguments passed to write function.
     """
     path = Path(path)
     
@@ -71,17 +71,17 @@ def write_data(adata: ad.AnnData, path: str, **kwargs):
 def _load_mapping(path: str) -> pd.DataFrame:
     """Load channel mapping from CSV file.
     
-    Expected columns: bc_sequence, channel_name
+    Expected columns: bc_sequence, channel_name.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     path : str
-        Path to mapping CSV file
+        Path to mapping CSV file.
     
-    Returns:
-    --------
-    mapping_df : DataFrame
-        Channel mapping dataframe
+    Returns
+    -------
+    DataFrame
+        Channel mapping dataframe.
     """
     df = pd.read_csv(path)
     required = {"bc_sequence", "channel_name"}
@@ -98,30 +98,32 @@ def map_channels(adata: ad.AnnData,
     """Map and rename barcode channels, storing barcode channel list in adata.uns.
     
     Renames channels to s_1, s_2, ..., s_N and reorders them to the end.
-    The list of barcode channels is stored in adata.uns['barcode_channels'].
+    The list of barcode channels is stored in ``adata.uns['barcode_channels']``.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     mapping : str, DataFrame, or dict
         Channel mapping specification:
+        
         - str: path to CSV file
         - DataFrame: mapping dataframe with required columns
         - dict: {old_name: new_name} mapping
-    inplace : bool
-        Modify adata in place (default: True)
-    verbose : bool
-        Print progress messages (default: True)
+    inplace : bool, default True
+        Modify adata in place.
+    verbose : bool, default True
+        Print progress messages.
     
-    Returns:
-    --------
-    adata : AnnData
+    Returns
+    -------
+    AnnData
         Modified AnnData object with:
+        
         - Renamed barcode channels (s_1, s_2, ...)
         - Reordered channels (non-barcode first, then barcodes)
-        - adata.uns['barcode_channels']: list of barcode channel names
-        - adata.uns['channel_mapping']: mapping information
+        - ``adata.uns['barcode_channels']``: list of barcode channel names
+        - ``adata.uns['channel_mapping']``: mapping information
     """
     if not inplace:
         adata = adata.copy()
@@ -186,23 +188,23 @@ def map_channels(adata: ad.AnnData,
 def get_barcode_channels(adata: ad.AnnData) -> List[str]:
     """Get list of barcode channel names.
     
-    First checks adata.uns['barcode_channels'] (set by map_channels).
+    First checks ``adata.uns['barcode_channels']`` (set by ``map_channels``).
     If not found, detects channels with s_* pattern.
     
-    Parameters:
-    -----------
+    Parameters
+    ----------
     adata : AnnData
-        Annotated data object
+        Annotated data object.
     
-    Returns:
-    --------
-    channels : list
-        List of barcode channel names
-    
-    Raises:
+    Returns
     -------
+    list of str
+        List of barcode channel names.
+    
+    Raises
+    ------
     ValueError
-        If no barcode channels are found
+        If no barcode channels are found.
     """
 
     if 'barcode_channels' in adata.uns:

@@ -377,28 +377,31 @@ def filter_cells_conf(adata: ad.AnnData,
     adata : AnnData
         Annotated data object.
     confidence_col : str
-        Name of confidence column in adata.obs.
-    method : str
-        Filtering method. Default: 'percentile'.
-        - 'threshold': keep cells with confidence >= value
-        - 'percentile': keep top value% of cells by confidence
-        - 'adaptive': GMM-based automatic threshold
-    value : float, optional
-        For 'threshold': minimum confidence to pass.
-        For 'percentile': percentage of top cells to keep (e.g., 90 keeps top 90%).
-        Default: 90.
-    filter_or_flag : str
-        'flag' to add boolean column, 'filter' to remove cells. Default: 'flag'.
-    adaptive_n_init : int
-        GMM initializations for adaptive method. Default: 5.
+        Name of confidence column in ``adata.obs``.
+    method : {'percentile', 'threshold', 'adaptive'}, default 'percentile'
+        Filtering method:
+        
+        - ``'threshold'``: keep cells with confidence >= value
+        - ``'percentile'``: keep top value% of cells by confidence
+        - ``'adaptive'``: GMM-based automatic threshold
+    value : float, optional, default 90
+        For ``'threshold'``: minimum confidence to pass.
+        For ``'percentile'``: percentage of top cells to keep.
+    filter_or_flag : {'flag', 'filter'}, default 'flag'
+        ``'flag'`` to add boolean column, ``'filter'`` to remove cells.
+    adaptive_n_init : int, default 5
+        GMM initializations for adaptive method.
     filter_name : str, optional
         Custom name for this filtering run. If None, auto-generates unique name.
-    inplace : bool
-        Modify adata in place. Default: True.
+    inplace : bool, default True
+        Modify adata in place.
+    verbose : bool, default True
+        Print progress messages.
     
     Returns
     -------
-    AnnData with filtering results.
+    AnnData
+        AnnData with filtering results.
     """
     if not inplace:
         adata = adata.copy()
@@ -514,35 +517,37 @@ def filter_pattern(adata: ad.AnnData,
     adata : AnnData
         Annotated data object.
     assignment_col : str
-        Name of barcode assignment column in adata.obs.
+        Name of barcode assignment column in ``adata.obs``.
     confidence_col : str, optional
-        Name of confidence column in adata.obs. Required when metric is
-        'median_conf' or 'score'.
-    metric : str
-        Pattern metric. Default: 'count'.
-        - 'count': number of cells per pattern
-        - 'median_conf': median confidence per pattern
-        - 'score': count * median_conf
-    method : str
-        Filtering method. Default: 'threshold'.
-        - 'threshold': keep patterns with metric >= value
-        - 'percentile': keep top value% of patterns by metric
-    value : float
-        For 'threshold': minimum metric value to pass.
-        For 'percentile': percentage of top patterns to keep (e.g., 90 keeps top 90%).
-        Default: 10.
-    filter_or_flag : str
-        'flag' to add boolean column, 'filter' to remove cells. Default: 'flag'.
+        Name of confidence column in ``adata.obs``. Required when metric is
+        ``'median_conf'`` or ``'score'``.
+    metric : {'count', 'median_conf', 'score'}, default 'count'
+        Pattern metric:
+        
+        - ``'count'``: number of cells per pattern
+        - ``'median_conf'``: median confidence per pattern
+        - ``'score'``: count * median_conf
+    method : {'threshold', 'percentile'}, default 'threshold'
+        Filtering method:
+        
+        - ``'threshold'``: keep patterns with metric >= value
+        - ``'percentile'``: keep top value% of patterns by metric
+    value : float, default 10
+        For ``'threshold'``: minimum metric value to pass.
+        For ``'percentile'``: percentage of top patterns to keep.
+    filter_or_flag : {'flag', 'filter'}, default 'flag'
+        ``'flag'`` to add boolean column, ``'filter'`` to remove cells.
     filter_name : str, optional
         Custom name for this filtering run. If None, auto-generates unique name.
-    inplace : bool
-        Modify adata in place. Default: True.
-    verbose : bool
-        Print progress. Default: True.
+    inplace : bool, default True
+        Modify adata in place.
+    verbose : bool, default True
+        Print progress messages.
     
     Returns
     -------
-    AnnData with filtering results.
+    AnnData
+        AnnData with filtering results.
     """
     if not inplace:
         adata = adata.copy()
@@ -675,65 +680,58 @@ def hamming_cluster(adata: ad.AnnData,
     Handles both valid patterns (4-of-9 in each block) and invalid patterns
     (which are remapped unconditionally to nearest valid neighbor within radius).
     
-    Recommended settings
-    --------------------
-    18-channel (2 blocks):
-        Default settings work well: method='msg', ratio=15, tie_break='lda'
-    
-    27-channel (3 blocks):
-        Lower ratio recommended due to sparser barcode space: ratio=5
-    
-    Small K (few barcodes):
-        Consider lowering ratio (e.g., 5-10) as patterns are more isolated.
-    
-    When to use 'sphere':
-        For more local control. Set min_count_center to a threshold above which 
-        patterns are likely real barcodes. Adjust radius based on expected Hamming 
-        distance between true barcodes (typically 2-4).
-    
     Parameters
     ----------
     adata : AnnData
         Annotated data with debarcoding results.
     assignment_col : str
-        Column in adata.obs with barcode assignments.
+        Column in ``adata.obs`` with barcode assignments.
     confidence_col : str
-        Column in adata.obs with confidence scores (used for ratio_metric='score').
-    method : str
-        'msg' (message passing) or 'sphere' (local maxima). Default: 'msg'.
-    radius : int
-        Max Hamming distance for neighbor search. Default: 2.
-    ratio : float
-        Minimum ratio for remapping valid patterns. Default: 15.0.
+        Column in ``adata.obs`` with confidence scores.
+    method : {'msg', 'sphere'}, default 'msg'
+        Clustering method: ``'msg'`` (message passing) or ``'sphere'`` (local maxima).
+    radius : int, default 2
+        Max Hamming distance for neighbor search.
+    ratio : float, default 15.0
+        Minimum ratio for remapping valid patterns.
         Use ~15 for 18ch, ~5 for 27ch or small K.
-    ratio_metric : str
-        'count' (N_q >= ratio * N_p) or 'score' (count*conf_q >= ratio * count*conf_p). 
-        Default: 'count'.
-    tie_break : str
-        'no_remap', 'count', or 'lda'. Default: 'lda'.
-    low_conf_perc : float or None
-        Only remap bottom N% confidence cells. Default: None (all).
-    min_count_center : int
-        Min count for centers (sphere only). Default: 1.
-    layer : str
-        Data layer for LDA. Default: 'log'.
-    save_results : bool
-        Save metadata to adata.uns. Default: True.
-    inplace : bool
-        Modify in place. Default: True.
-    verbose : bool
-        Print progress. Default: True.
+    ratio_metric : {'count', 'score'}, default 'count'
+        Ratio metric: ``'count'`` (N_q >= ratio * N_p) or 
+        ``'score'`` (count*conf_q >= ratio * count*conf_p).
+    tie_break : {'no_remap', 'count', 'lda'}, default 'lda'
+        Tie-break method when multiple equidistant neighbors pass ratio test.
+    low_conf_perc : float, optional
+        Only remap bottom N% confidence cells. Default: None (all cells).
+    min_count_center : int, default 1
+        Minimum count for centers (sphere method only).
+    layer : str, default 'log'
+        Data layer for LDA tie-breaking.
+    save_results : bool, default True
+        Save metadata to ``adata.uns``.
+    inplace : bool, default True
+        Modify adata in place.
+    verbose : bool, default True
+        Print progress messages.
     
     Returns
     -------
-    AnnData with columns added:
-        - `{base}_hamming_assignment`: corrected assignments
-        - `{base}_hamming_confidence`: Mahalanobis confidence (recomputed)
-        - `{base}_hamming_remapped`: boolean mask of remapped cells
-    where `base` is `assignment_col` with trailing suffix (e.g. '_assignment') stripped.
+    AnnData
+        AnnData with columns added:
+        
+        - ``{base}_hamming_assignment``: corrected assignments
+        - ``{base}_hamming_confidence``: Mahalanobis confidence (recomputed)
+        - ``{base}_hamming_remapped``: boolean mask of remapped cells
+        
+        where ``base`` is ``assignment_col`` with trailing suffix stripped.
     
     Notes
     -----
+    **Recommended settings:**
+    
+    - 18-channel (2 blocks): Default settings (ratio=15, tie_break='lda')
+    - 27-channel (3 blocks): Lower ratio (ratio=5) due to sparser barcode space
+    - Small K (few barcodes): Lower ratio (5-10) as patterns are more isolated
+    
     Invalid patterns (not 4-of-9 per block) are always remapped to the nearest
     valid neighbor within radius without ratio tests. Valid patterns are remapped 
     only to even-distance valid neighbors that pass the ratio test.
