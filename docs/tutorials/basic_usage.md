@@ -30,7 +30,7 @@ This tutorial walks through the complete xcode_debarcode workflow using a real d
 
 ```
 Load Data -> Map Channels -> Transform -> Filter Intensity -> Debarcode 
-    -> Inspect Distribution -> Hamming Clustering -> Confidence Filtering -> Save
+    -> Inspect Distribution -> Hamming Clustering -> Confidence Filtering -> (Optional) Cohesion -> Save
 ```
 
 ---
@@ -44,12 +44,10 @@ import warnings
 warnings.filterwarnings('ignore')
 import xcode_debarcode as xd
 import plotly.io as pio
-pio.renderers.default = 'notebook'  # Required for rendering plots in Jupyter notebooks
+pio.renderers.default = 'notebook'
 
-# Data path (relative to docs/tutorials/)
 DATA_DIR = '../../data'
 
-# Load FCS or H5AD file
 adata = xd.io.read_data(f'{DATA_DIR}/15K_test.fcs')
 
 print(f"Loaded {adata.n_obs} cells, {adata.n_vars} channels")
@@ -79,23 +77,6 @@ Channel mapping identifies which CyTOF channels correspond to barcode sequences 
 adata = xd.io.map_channels(adata, f'{DATA_DIR}/barcode_channel_mapping_18ch.csv')
 ```
 
-<details>
-<summary><b>Alternative: Dictionary mapping</b></summary>
-
-If you don't have a CSV file, use a dictionary directly:
-
-```python
-mapping = {
-    '163Dy_1': 's_1',
-    '158Gd_2': 's_2',
-    '165Ho_3-Bead3': 's_3',
-    # ... all 18 or 27 channels
-}
-adata = xd.io.map_channels(adata, mapping)
-```
-
-</details>
-
 ---
 
 ## 2. Transform Data
@@ -113,20 +94,6 @@ adata = xd.preprocessing.transform(adata, method='log')
 
 Transformed data is stored in `adata.layers['log']`.
 
-<details>
-<summary><b>Alternative: Arcsinh transform</b></summary>
-
-Arcsinh transformation with adjustable cofactor:
-
-```python
-adata = xd.preprocessing.transform(adata, method='arcsinh', cofactor=10.0)
-# Creates adata.layers['arcsinh_cf10.0']
-```
-
-The cofactor controls compression: lower values compress high intensities more.
-
-</details>
-
 ### Visualize Channel Distributions
 
 ```{code-cell} python
@@ -136,9 +103,7 @@ fig = xd.plots.plot_channel_intensities(adata, layer='log')
 fig
 ```
 
-All plots in this library are interactive Plotly figures. Hover over data points for additional information.
-
-Bimodal distributions indicate good separation between ON/OFF states—the typical case for most datasets. Since our channels show clear bimodality, we will use the PC-GMM method (recommended default). In rare cases where channels appear unimodal (e.g., very few barcodes where some channels are all-ON or all-OFF), PreMessa may be more appropriate.
+Bimodal distributions indicate good separation between ON/OFF states. Since our channels show clear bimodality, we will use the PC-GMM method (recommended default).
 
 ---
 
@@ -148,16 +113,12 @@ Remove debris (low intensity) and doublets (high intensity) before debarcoding.
 
 ### Visualize Cell Distribution
 
-Use `plot_intensity_scatter` to visualize the sum vs variance distribution and preview filtering:
-
 ```{code-cell} python
 fig = xd.plots.plot_intensity_scatter(adata, layer='log')
 fig
 ```
 
 ### Preview Filter Boundaries
-
-Preview filtering with the ellipsoidal method, which uses Mahalanobis distance and handles non-axis-aligned outliers well:
 
 ```{code-cell} python
 fig = xd.plots.plot_intensity_scatter(adata, layer='log', method='ellipsoidal', percentile=95.0)
@@ -171,43 +132,12 @@ adata = xd.preprocessing.filter_cells_intensity(
     adata,
     layer='log',
     method='ellipsoidal',
-    percentile=95.0,           # Keep cells within 95th percentile of Mahalanobis distance
-    filter_or_flag='filter'    # Remove cells directly
+    percentile=95.0,
+    filter_or_flag='filter'
 )
 
 print(f"Remaining cells: {adata.n_obs}")
 ```
-
-The `filter_or_flag` parameter controls behavior:
-- `'filter'`: Removes cells immediately (used here in the standard workflow)
-- `'flag'`: Adds boolean column `adata.obs['intensity_pass']` without removing cells, useful for exploratory analysis
-
-<details>
-<summary><b>Alternative: Rectangular method</b></summary>
-
-The rectangular method applies independent percentile thresholds on sum and variance. Useful when you want manual control over each axis:
-
-```python
-# Preview
-fig = xd.plots.plot_intensity_scatter(
-    adata, layer='log', method='rectangular',
-    sum_low=1.0, sum_high=99.0, var_low=1.0, var_high=99.0
-)
-
-# Apply
-adata = xd.preprocessing.filter_cells_intensity(
-    adata,
-    layer='log',
-    method='rectangular',
-    sum_low=1.0,               # Remove bottom 1% by channel sum
-    sum_high=99.0,             # Remove top 1% by channel sum  
-    var_low=1.0,               # Remove bottom 1% by variance
-    var_high=99.0,             # Remove top 1% by variance
-    filter_or_flag='filter'
-)
-```
-
-</details>
 
 ---
 
@@ -217,12 +147,9 @@ adata = xd.preprocessing.filter_cells_intensity(
 
 | Method | Best for | Notes |
 |--------|----------|-------|
-| **PC-GMM** | Bimodal regime | Recommended default; best coverage-accuracy trade-off in most situations |
-| **PreMessa** | Unimodal regime | Iterative top-4 selection with per-channel normalization; use when channels lack bimodality |
-| **GMM** | Exploration (bimodal regime) | Assignments not constrained to valid patterns; use only for exploring raw signal |
-| **Manual** | Custom thresholds | User-defined per-channel thresholds |
-
-Since we observed bimodal channel distributions above, we use PC-GMM (the recommended default):
+| **PC-GMM** | Bimodal regime | Recommended default; best coverage-accuracy trade-off |
+| **PreMessa** | Unimodal regime | For channels lacking bimodality |
+| **GMM** | Exploration | Assignments not constrained to valid patterns |
 
 ### Apply Debarcoding
 
@@ -234,32 +161,17 @@ adata = xd.debarcode.debarcode(
 )
 ```
 
-<details>
-<summary><b>Alternative: Manual thresholds</b></summary>
+After debarcoding:
+- `adata.obs['pc_gmm_assignment']`: Assigned barcode patterns
+- `adata.obs['pc_gmm_confidence']`: Raw method confidence score (product of per-block posteriors for PC-GMM)
 
-If you want to set the ON/OFF threshold for each channel yourself (e.g., from visual inspection):
-
-```python
-# One threshold per channel
-thresholds = [1.5, 1.8, 1.6, 1.7, 1.5, 1.6, 1.8, 1.5, 1.7,   # Block 1
-              1.6, 1.5, 1.7, 1.8, 1.6, 1.5, 1.7, 1.6, 1.8]   # Block 2
-
-adata = xd.debarcode.debarcode(
-    adata,
-    method='manual',
-    thresholds=thresholds
-)
-```
-
-</details>
+The confidence score is the native score produced by the debarcoding method and is used for coverage-accuracy trade-off analysis by ranking cells and selecting the top N%.
 
 ---
 
 ## 5. Inspect Barcode Distribution
 
 ### Barcode Rank Histogram
-
-Use `plot_barcode_rank_histogram` to visualize the distribution of cell counts per barcode pattern:
 
 ```{code-cell} python
 fig = xd.plots.plot_barcode_rank_histogram(adata, assignment_col='pc_gmm_assignment')
@@ -270,65 +182,47 @@ True barcodes typically have high cell counts, while noisy patterns have low cou
 
 ### Cumulative Barcode Rank
 
-Use `plot_cumul_barcode_rank` to see how cells accumulate across patterns. A steep initial rise followed by a plateau indicates that a small number of real barcode patterns capture most cells, while the long tail represents noise:
-
 ```{code-cell} python
 fig = xd.plots.plot_cumul_barcode_rank(adata, assignment_col='pc_gmm_assignment')
 fig
 ```
 
-A strong elbow suggests clear separation between real barcodes (high plateau) and junk patterns (tail). In this dataset, the separation is gradual, meaning real barcodes and noise patterns are not well separated by count alone.
+A strong elbow suggests clear separation between real barcodes (high plateau) and junk patterns (tail).
 
 ---
 
 ## 6. Hamming Clustering
 
-Hamming clustering corrects noisy assignments by merging small patterns into nearby valid patterns. The algorithms are inspired by [starcode](https://github.com/gui11aume/starcode).
+Hamming clustering corrects noisy assignments by merging small patterns into nearby valid patterns.
 
 ### Why Hamming Clustering?
 
 - True barcodes have high cell counts
 - Noisy assignments create low-count patterns near true barcodes
-- If barcode sublibrary << full library, collisions (true barcodes within Hamming radius) are rare
+- If barcode sublibrary << full library, collisions are rare
 
-See [Hamming Guidelines](hamming_guidelines.md) for more about X-Code geometry theory. 
+See [Hamming Guidelines](hamming_guidelines.md) for parameter tuning.
 
 ### Apply Hamming Clustering
-
-The main method is message-passing (`msg`), which iteratively merges small patterns into dominant neighbors.
-
-For this sample, we expect a sublibrary size between 3000 and 4000 barcodes. With the 15K library (18 channels) and such a large sublibrary, Hamming clustering benefits are negligible and could be skipped entirely. Using too low of a ratio could be harmful in this situation. Here we use an ultra-safe `ratio=25` to illustrate how to use the function. See [Hamming Guidelines](hamming_guidelines.md) for recommended settings in different situations.
 
 ```{code-cell} python
 adata = xd.postprocessing.hamming_cluster(
     adata,
     assignment_col='pc_gmm_assignment',
     confidence_col='pc_gmm_confidence',
-    method='msg',              # Message-passing algorithm
-    radius=2,                  # Max Hamming distance for merging
-    ratio=25.0,                # Ultra-safe ratio for large sublibrary
-    tie_break='lda',           # LDA-based tie-breaking
+    method='msg',
+    radius=2,
+    ratio=25.0,
+    tie_break='lda',
     layer='log'
 )
 ```
 
-<details>
-<summary><b>Alternative: Sphere method</b></summary>
+After Hamming clustering:
+- `adata.obs['pc_gmm_hamming_assignment']`: Corrected assignments
+- `adata.obs['pc_gmm_hamming_remapped']`: Boolean mask of remapped cells
 
-The sphere method finds local maxima as cluster centers, then assigns all patterns within the radius to those centers:
-
-```python
-adata = xd.postprocessing.hamming_cluster(
-    adata,
-    assignment_col='pc_gmm_assignment',
-    confidence_col='pc_gmm_confidence',
-    method='sphere',
-    radius=2,
-    min_count_center=100       # Only patterns with 100+ cells become centers
-)
-```
-
-</details>
+Note: Confidence values are not modified by Hamming clustering. Continue to use `pc_gmm_confidence` for filtering.
 
 ### Barcode Rank After Clustering
 
@@ -337,97 +231,58 @@ fig = xd.plots.plot_barcode_rank_histogram(adata, assignment_col='pc_gmm_hamming
 fig
 ```
 
-Compare with the pre-clustering histogram: noisy low-count patterns should be absorbed into high-count valid patterns.
-
 ---
 
-## 7. Filtering
+## 7. Confidence Filtering
 
-Filtering can be applied either before or after Hamming clustering. Two approaches are available: cell-level confidence filtering and pattern-level filtering.
-
-### Cell Confidence Filtering
-
-Filter individual cells based on their confidence scores. This can be applied pre- or post-Hamming:
+Filter cells based on their confidence scores to select high-quality assignments:
 
 ```{code-cell} python
 adata = xd.postprocessing.filter_cells_conf(
     adata,
-    confidence_col='pc_gmm_hamming_confidence',
-    method='percentile',
-    value=90,                  # Keep top 90% by confidence
-    filter_or_flag='flag'
-)
-```
-
-<details>
-<summary><b>Alternative: Fixed threshold</b></summary>
-
-```python
-adata = xd.postprocessing.filter_cells_conf(
-    adata,
-    confidence_col='pc_gmm_hamming_confidence',
-    method='threshold',
-    value=0.5,                 # Keep cells with confidence >= 0.5
-    filter_or_flag='flag'
-)
-```
-
-</details>
-
-### Pattern Filtering
-
-Filter cells based on pattern-level statistics:
-
-```{code-cell} python
-:tags: [skip-execution]
-
-adata = xd.postprocessing.filter_pattern(
-    adata,
-    assignment_col='pc_gmm_hamming_assignment',
-    metric='count',
-    method='threshold',
-    value=50,                  # Minimum 50 cells per pattern
-    filter_or_flag='flag'
-)
-```
-
-<details>
-<summary><b>Alternative: Filter by score (count x median confidence)</b></summary>
-
-```python
-adata = xd.postprocessing.filter_pattern(
-    adata,
-    assignment_col='pc_gmm_hamming_assignment',
-    confidence_col='pc_gmm_hamming_confidence',
-    metric='score',            # count * median_conf
+    confidence_col='pc_gmm_confidence',
     method='percentile',
     value=90,
     filter_or_flag='flag'
 )
 ```
 
-</details>
-
-<details>
-<summary><b>Recomputing confidence after filtering</b></summary>
-
-If you filter patterns (removing cells), you can recompute Mahalanobis confidence based on updated cluster centroids:
-
-```python
-new_conf = xd.postprocessing.mahal_conf(
-    adata,
-    assignment_col='pc_gmm_assignment',
-    layer='log',
-    min_cells=5               # Adjust threshold if needed
-)
-adata.obs['pc_gmm_confidence'] = new_conf
-```
-
-</details>
+This uses the raw confidence score from debarcoding to keep the top 90% of cells.
 
 ---
 
-## 8. Save Results
+## 8. Cohesion (Optional)
+
+Cohesion measures how close each cell is to its assigned cluster centroid. This is an optional end-of-workflow QC step to identify outlier cells within clusters.
+
+```{code-cell} python
+:tags: [skip-execution]
+
+adata = xd.postprocessing.add_cohesion(
+    adata,
+    assignment_col='pc_gmm_hamming_assignment',
+    layer='log',
+    min_cells=5
+)
+```
+
+After cohesion computation:
+- `adata.obs['pc_gmm_hamming_cohesion']`: Cohesion score in [0, 1]
+- 1.0 = at centroid, lower = farther from centroid
+- 0.0 = unscored (cluster has < min_cells)
+
+Use cohesion for optional post-hoc filtering of cluster outliers:
+
+```{code-cell} python
+:tags: [skip-execution]
+
+# Example: filter cells with low cohesion
+adata_filtered = adata[adata.obs['pc_gmm_hamming_cohesion'] > 0.3]
+```
+
+---
+
+## 9. Save Results
 
 ```{code-cell} python
 :tags: [skip-execution]
@@ -439,7 +294,6 @@ The H5AD file preserves:
 - All channels (barcode + phenotypic markers)
 - All layers (raw, transformed)
 - All metadata (assignments, confidence, filtering flags)
-- Processing parameters in `adata.uns`
 
 <details>
 <summary><b>Accessing results</b></summary>
@@ -449,17 +303,57 @@ After debarcoding, key results are in:
 ```python
 # Assignments and confidence
 adata.obs['pc_gmm_assignment']           # Barcode pattern strings
-adata.obs['pc_gmm_confidence']           # Mahalanobis confidence [0, 1]
+adata.obs['pc_gmm_confidence']           # Raw method confidence
 
 # After Hamming clustering
 adata.obs['pc_gmm_hamming_assignment']   # Corrected assignments
-adata.obs['pc_gmm_hamming_confidence']   # Mahalanobis confidence (recomputed)
-adata.obs['pc_gmm_hamming_remapped']     # Boolean: was cell remapped?
+adata.obs['pc_gmm_hamming_remapped']     # Was cell remapped?
 
 # Filtering flags
 adata.obs['intensity_pass']              # Intensity filter
-adata.obs['pc_gmm_confidence_pass']      # Confidence filter
-adata.obs['pc_gmm_hamming_confidence_pass'] # Confidence filter (after Hamming)
+adata.obs['pc_gmm_pass']                 # Confidence filter
+
+# Optional cohesion (if computed)
+adata.obs['pc_gmm_hamming_cohesion']     # Cluster cohesion
+
+# Method parameters
+adata.uns['debarcoding']['pc_gmm']       # Debarcoding parameters
+adata.uns['hamming_clustering']          # Hamming parameters
+```
+
+</details>
+
+```{code-cell} python
+:tags: [skip-execution]
+
+xd.io.write_data(adata, 'debarcoded_15K.h5ad')
+```
+
+The H5AD file preserves:
+- All channels (barcode + phenotypic markers)
+- All layers (raw, transformed)
+- All metadata (assignments, confidence, filtering flags)
+
+<details>
+<summary><b>Accessing results</b></summary>
+
+After debarcoding, key results are in:
+
+```python
+# Assignments and confidence
+adata.obs['pc_gmm_assignment']           # Barcode pattern strings
+adata.obs['pc_gmm_confidence']           # Raw method confidence
+
+# After Hamming clustering
+adata.obs['pc_gmm_hamming_assignment']   # Corrected assignments
+adata.obs['pc_gmm_hamming_remapped']     # Was cell remapped?
+
+# Optional cohesion (if computed)
+adata.obs['pc_gmm_hamming_cohesion']     # Cluster cohesion
+
+# Filtering flags
+adata.obs['intensity_pass']              # Intensity filter
+adata.obs['pc_gmm_pass']                 # Confidence filter
 
 # Method parameters
 adata.uns['debarcoding']['pc_gmm']       # Debarcoding parameters
@@ -484,36 +378,16 @@ adata = xd.debarcode.debarcoding_pipeline(
     adata,
     method='pc_gmm',
     transform_method='log',
-    # Intensity filtering
     apply_intensity_filter=True,
     intensity_method='ellipsoidal',
-    # Hamming clustering
     apply_hamming=True,
     hamming_ratio=25.0,
-    # Confidence filtering  
+    apply_cohesion=False,
     apply_confidence_filter=True,
     confidence_filter_method='percentile',
     confidence_value=90
 )
 ```
-
-The pipeline runs: Transform -> Intensity Filter -> Debarcode -> Hamming -> Confidence Filter
-
-<details>
-<summary><b>When to use manual steps vs pipeline</b></summary>
-
-**Use the pipeline when:**
-- Standard workflow with default parameters
-- Batch processing multiple files
-- Quick exploratory analysis
-
-**Use manual steps when:**
-- Custom parameters at each stage
-- Visual inspection between steps
-- Non-standard workflows
-- Debugging issues
-
-</details>
 
 ---
 
@@ -525,9 +399,10 @@ The pipeline runs: Transform -> Intensity Filter -> Debarcode -> Hamming -> Conf
 | Map | `io.map_channels()` | `adata.uns['barcode_channels']` |
 | Transform | `preprocessing.transform()` | `adata.layers['log']` |
 | Intensity filter | `preprocessing.filter_cells_intensity()` | `adata.obs['intensity_pass']` |
-| Debarcode | `debarcode.debarcode()` | `adata.obs['{method}_assignment']` |
-| Hamming | `postprocessing.hamming_cluster()` | `adata.obs['{method}_hamming_assignment']` |
-| Confidence filter | `postprocessing.filter_cells_conf()` | `adata.obs['{method}_confidence_pass']` |
+| Debarcode | `debarcode.debarcode()` | `{method}_assignment`, `{method}_confidence` (raw) |
+| Hamming | `postprocessing.hamming_cluster()` | `{method}_hamming_assignment`, `{method}_hamming_remapped` |
+| Confidence filter | `postprocessing.filter_cells_conf()` | `{method}_pass` |
+| Cohesion (optional) | `postprocessing.add_cohesion()` | `{base}_cohesion` |
 | Save | `io.write_data()` | `.h5ad` file |
 
 ---

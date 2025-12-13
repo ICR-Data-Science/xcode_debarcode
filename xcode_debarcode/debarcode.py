@@ -61,33 +61,11 @@ def _fit_gmm_channel(x: np.ndarray, min_int: float, n_init: int) -> Optional[Dic
         return None
 
 
-def _compute_mahalanobis_confidence(X: np.ndarray, assignments: np.ndarray, min_cells: int = 5) -> np.ndarray:
-    """Compute Mahalanobis-based confidence from cluster centroids."""
-    n_cells = len(assignments)
-    D = X.shape[1]
-    
-    pattern_stats = {}
-    for pattern in np.unique(assignments):
-        mask = assignments == pattern
-        if mask.sum() >= min_cells:
-            Xp = X[mask]
-            pattern_stats[pattern] = {
-                'centroid': Xp.mean(axis=0),
-                'variance': Xp.var(axis=0) + 1e-3
-            }
-    
-    confidences = np.zeros(n_cells)
-    for i in range(n_cells):
-        pat = assignments[i]
-        if pat in pattern_stats:
-            d2 = ((X[i] - pattern_stats[pat]['centroid']) ** 2 / pattern_stats[pat]['variance']).sum()
-            confidences[i] = 1.0 / (1.0 + d2 / D)
-    
-    return confidences
-
-
 def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """PC-GMM: Pattern-Constrained Gaussian Mixture Model."""
+    """PC-GMM: Pattern-Constrained Gaussian Mixture Model.
+    
+    Returns barcodes, raw_confidences (product of per-block posteriors), channel_params.
+    """
     n_cells, n_channels = X.shape
     n_blocks = n_channels // 9
     
@@ -155,7 +133,10 @@ def _pc_gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, verbose: bool 
 
 
 def _gmm(X: np.ndarray, n_init: int = 5, min_int: float = 0.1, prob_thresh: float = 0.5, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """GMM: Gaussian Mixture Model."""
+    """GMM: Gaussian Mixture Model.
+    
+    Returns barcodes, raw_confidences (product of per-channel posteriors), channel_params.
+    """
     n_cells, n_channels = X.shape
     
     if verbose:
@@ -213,7 +194,10 @@ def _premessa_core(X: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 
 
 def _premessa(X: np.ndarray, n_iter: int = 2, min_cells: int = 10, verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """PreMessa: Top-4 selection with iterative per-channel normalization."""
+    """PreMessa: Top-4 selection with iterative per-channel normalization.
+    
+    Returns barcodes, raw_confidences (min separation delta across blocks), params.
+    """
     n_cells, n_channels = X.shape
     
     if verbose:
@@ -238,8 +222,11 @@ def _premessa(X: np.ndarray, n_iter: int = 2, min_cells: int = 10, verbose: bool
     return barcodes, deltas, {'method': 'premessa', 'n_iter': n_iter}
 
 
-def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tuple[np.ndarray, np.ndarray, Dict]:
-    """Manual: Threshold-based gating."""
+def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tuple[np.ndarray, None, Dict]:
+    """Manual: Threshold-based gating.
+    
+    Returns barcodes, None (no confidence), channel_params.
+    """
     n_cells, n_channels = X.shape
     
     if verbose:
@@ -251,14 +238,13 @@ def _manual(X: np.ndarray, thresholds: List[float], verbose: bool = True) -> Tup
     barcodes = (X > np.array(thresholds)).astype(int)
     
     from .barcode import is_valid_pattern
-    confidences = np.array([1.0 if is_valid_pattern(b) else 0.5 for b in barcodes])
+    n_valid = sum(1 for b in barcodes if is_valid_pattern(b))
     channel_params = {str(g): {'channel_index': g, 'threshold': thresholds[g]} for g in range(n_channels)}
     
     if verbose:
-        n_valid = confidences.sum()
-        print(f"Manual: Complete. Valid patterns: {int(n_valid)}/{n_cells}")
+        print(f"Manual: Complete. Valid patterns: {n_valid}/{n_cells}")
     
-    return barcodes, confidences, channel_params
+    return barcodes, None, channel_params
 
 
 def debarcode(adata: ad.AnnData,
@@ -270,7 +256,6 @@ def debarcode(adata: ad.AnnData,
              n_iter: int = 2,
              thresholds: Optional[List[float]] = None,
              method_name: Optional[str] = None,
-             save_raw_score: bool = False,
              inplace: bool = True,
              verbose: bool = True) -> ad.AnnData:
     """Apply debarcoding to assign barcodes to cells.
@@ -284,7 +269,8 @@ def debarcode(adata: ad.AnnData,
         
         - ``'pc_gmm'``: Pattern-Constrained GMM (recommended for most datasets)
         - ``'premessa'``: Iterative top-4 selection per block (for unimodal regime)
-        - ``'gmm'``: Gaussian Mixture Model per channel (exploration only; assignments not constrained to valid patterns)
+        - ``'gmm'``: Gaussian Mixture Model per channel (exploration only; 
+          assignments not constrained to valid patterns)
         - ``'manual'``: Fixed thresholds
     layer : str, optional
         Layer to use for debarcoding. Recommend using transformed layer.
@@ -306,8 +292,6 @@ def debarcode(adata: ad.AnnData,
     method_name : str, optional
         Custom name for this debarcoding run. If None, uses method name
         and auto-increments if exists (e.g., ``'pc_gmm'``, ``'pc_gmm_1'``).
-    save_raw_score : bool, default False
-        If True, save raw method score to ``adata.obs['{method_name}_score_raw']``.
     inplace : bool, default True
         Modify adata in place.
     verbose : bool, default True
@@ -319,8 +303,11 @@ def debarcode(adata: ad.AnnData,
         Modified AnnData with debarcoding results:
         
         - ``adata.obs['{method_name}_assignment']``: Assigned barcode patterns
-        - ``adata.obs['{method_name}_confidence']``: Mahalanobis-based confidence
-          in [0, 1]. Patterns with <5 cells get confidence 0.
+        - ``adata.obs['{method_name}_confidence']``: Raw method confidence score
+          (not created for manual method).
+          For PC-GMM: product of per-block posteriors.
+          For GMM: product of per-channel posteriors.
+          For PreMessa: minimum separation delta across blocks.
         - ``adata.uns['debarcoding']['{method_name}']``: Method metadata
     
     Examples
@@ -349,10 +336,10 @@ def debarcode(adata: ad.AnnData,
     final_method_name = _get_unique_method_name(adata, method, method_name)
     
     methods = {
-        'manual': lambda: (_manual(X, thresholds, verbose), None),
-        'gmm': lambda: (_gmm(X, n_init, min_int, prob_thresh, verbose), None),
-        'premessa': lambda: (_premessa(X, n_iter, verbose=verbose), None),
-        'pc_gmm': lambda: (_pc_gmm(X, n_init, min_int, verbose), None),
+        'manual': lambda: _manual(X, thresholds, verbose),
+        'gmm': lambda: _gmm(X, n_init, min_int, prob_thresh, verbose),
+        'premessa': lambda: _premessa(X, n_iter, verbose=verbose),
+        'pc_gmm': lambda: _pc_gmm(X, n_init, min_int, verbose),
     }
     
     if method == 'manual' and thresholds is None:
@@ -361,24 +348,15 @@ def debarcode(adata: ad.AnnData,
     if method not in methods:
         raise ValueError(f"Unknown method: {method}. Valid options: {list(methods.keys())}")
     
-    result = methods[method]()
-    (barcodes, raw_confidences, channel_params), _ = result
+    barcodes, confidences, channel_params = methods[method]()
     
     pattern_strings = np.array([''.join(map(str, b)) for b in barcodes])
     
-    # Compute Mahalanobis-based confidence using empirical cluster centroids
-    # This provides better calibration than method-specific confidence metrics
-    confidences = _compute_mahalanobis_confidence(X, pattern_strings)
-    
-    if verbose:
-        print(f"  Mahalanobis confidence: mean={confidences.mean():.4f}, range=[{confidences.min():.4f}, {confidences.max():.4f}]")
-    
     adata.obs[f'{final_method_name}_assignment'] = pattern_strings
-    adata.obs[f'{final_method_name}_confidence'] = confidences
     
-    if save_raw_score:
-        adata.obs[f'{final_method_name}_score_raw'] = raw_confidences
-
+    if confidences is not None:
+        adata.obs[f'{final_method_name}_confidence'] = confidences
+    
     if 'debarcoding' not in adata.uns:
         adata.uns['debarcoding'] = {}
     
@@ -390,11 +368,9 @@ def debarcode(adata: ad.AnnData,
                     params['channel'] = barcode_channels[idx]
             except (ValueError, TypeError):
                 pass
-
     
     metadata = {
         'method': method,
-        'confidence_method': 'mahalanobis',  # Empirical centroid-based
         'layer': layer,
         'n_init': n_init if method in ['gmm', 'pc_gmm'] else None,
         'min_int': min_int if method in ['gmm', 'pc_gmm'] else None,
@@ -404,8 +380,7 @@ def debarcode(adata: ad.AnnData,
         'n_cells': len(adata),
         'n_channels': len(barcode_channels),
         'barcode_channels': barcode_channels,
-        'mean_confidence': float(confidences.mean()),
-        'mean_raw_confidence': float(raw_confidences.mean()),
+        'mean_confidence': float(confidences.mean()) if confidences is not None else None,
         'channel_params': channel_params
     }
     
@@ -413,8 +388,11 @@ def debarcode(adata: ad.AnnData,
     
     if verbose:
         print(f"Debarcoding complete using {method} (saved as '{final_method_name}')")
-        print(f"  Confidence: adata.obs['{final_method_name}_confidence']")
         print(f"  Assignment: adata.obs['{final_method_name}_assignment']")
+        if confidences is not None:
+            print(f"  Confidence: adata.obs['{final_method_name}_confidence'] (raw score)")
+        else:
+            print(f"  Confidence: None (manual method has no confidence)")
         print(f"  [+] Metadata saved: adata.uns['debarcoding']['{final_method_name}']")
     
     return adata
@@ -451,12 +429,15 @@ def debarcoding_pipeline(adata: ad.AnnData,
                         confidence_filter_method: str = 'percentile',
                         confidence_value: float = 90,
                         confidence_filter_or_flag: str = 'flag',
+                        # Cohesion computation (optional, at end)
+                        apply_cohesion: bool = False,
+                        cohesion_min_cells: int = 5,
                         inplace: bool = True,
                         verbose: bool = True) -> ad.AnnData:
     """Complete debarcoding pipeline with transformation and postprocessing.
     
-    Runs the full debarcoding workflow: transformation → intensity filtering →
-    debarcoding → Hamming clustering → confidence filtering.
+    Runs the full debarcoding workflow: transformation -> intensity filtering ->
+    debarcoding -> Hamming clustering -> confidence filtering -> (optional) cohesion.
     
     Parameters
     ----------
@@ -485,7 +466,8 @@ def debarcoding_pipeline(adata: ad.AnnData,
         ``'filter'`` to remove cells or ``'flag'`` to mark.
     method : {'gmm', 'premessa', 'pc_gmm', 'manual'}, default 'pc_gmm'
         Debarcoding method. PC-GMM recommended for most datasets (bimodal regime).
-        PreMessa for unimodal regime. GMM for exploration only (assignments not constrained to valid patterns).
+        PreMessa for unimodal regime. GMM for exploration only (assignments not 
+        constrained to valid patterns).
     n_init : int, default 5
         GMM initializations. *Used by: gmm, pc_gmm.*
     min_int : float, default 0.1
@@ -510,6 +492,10 @@ def debarcoding_pipeline(adata: ad.AnnData,
         Tie-break method.
     hamming_low_conf_perc : float, optional
         Only remap bottom N% confidence cells.
+    apply_cohesion : bool, default False
+        Whether to compute cohesion scores after clustering.
+    cohesion_min_cells : int, default 5
+        Minimum cells per cluster for cohesion computation.
     apply_confidence_filter : bool, default True
         Whether to apply confidence-based filtering.
     confidence_filter_method : {'threshold', 'percentile'}, default 'percentile'
@@ -604,7 +590,6 @@ def debarcoding_pipeline(adata: ad.AnnData,
             verbose=verbose
         )
         assignment_col = f'{method_name}_hamming_assignment'
-        remapped_col = f'{method_name}_hamming_remapped'
         step += 1
     
     # Step 5: Confidence filtering
@@ -620,13 +605,26 @@ def debarcoding_pipeline(adata: ad.AnnData,
             filter_or_flag=confidence_filter_or_flag,
             verbose=verbose
         )
+        step += 1
+    
+    # Step 6: Cohesion computation (optional, at end of workflow)
+    if apply_cohesion:
+        if verbose:
+            print(f"\nStep {step}: Cohesion computation")
+        adata = postprocessing.add_cohesion(
+            adata,
+            assignment_col=assignment_col,
+            layer=layer_name,
+            min_cells=cohesion_min_cells,
+            verbose=verbose
+        )
     
     if verbose:
         print("\n" + "="*80)
         print("PIPELINE COMPLETE")
         print("="*80)
         print(f"\nFinal assignment: {assignment_col}")
-        print(f"Final confidence: {confidence_col}")
+        print(f"Final confidence: {confidence_col} (raw score)")
         if apply_intensity_filter and intensity_filter_or_flag == 'flag':
             print(f"Intensity filter flag: adata.obs['intensity_pass']")
         if apply_confidence_filter and confidence_filter_or_flag == 'flag':
