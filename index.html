@@ -124,8 +124,9 @@
 <li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#debarcoding">4. Debarcoding</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#inspect-barcode-distribution">5. Inspect Barcode Distribution</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#hamming-clustering">6. Hamming Clustering</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#filtering">7. Filtering</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#save-results">8. Save Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#confidence-filtering">7. Confidence Filtering</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#cohesion-optional">8. Cohesion (Optional)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#save-results">9. Save Results</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#alternative-pipeline-function">Alternative: Pipeline Function</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#summary">Summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/basic_usage.html#next-steps">Next Steps</a></li>
@@ -135,7 +136,6 @@
 <li class="toctree-l2"><a class="reference internal" href="tutorials/method_comparison.html#available-methods">Available Methods</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/method_comparison.html#performance-comparison">Performance Comparison</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/method_comparison.html#method-selection-guidelines">Method Selection Guidelines</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/method_comparison.html#common-workflow">Common Workflow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/method_comparison.html#summary">Summary</a></li>
 </ul>
 </li>
@@ -143,9 +143,7 @@
 <li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#what-is-hamming-distance">What is Hamming Distance?</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#why-hamming-clustering">Why Hamming Clustering?</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#clustering-methods">Clustering Methods</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#tie-breaking">Tie Breaking</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#remapped-cell-confidence">Remapped Cell Confidence</a></li>
-<li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#simulation-results">Simulation Results</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#performance-benchmarks">Performance Benchmarks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#parameter-guidelines">Parameter Guidelines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#example-workflow">Example Workflow</a></li>
 <li class="toctree-l2"><a class="reference internal" href="tutorials/hamming_guidelines.html#summary">Summary</a></li>
@@ -194,10 +192,10 @@
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="postprocessing.html">postprocessing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="postprocessing.html#xcode_debarcode.postprocessing.add_cohesion"><code class="docutils literal notranslate"><span class="pre">add_cohesion()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="postprocessing.html#xcode_debarcode.postprocessing.filter_cells_conf"><code class="docutils literal notranslate"><span class="pre">filter_cells_conf()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="postprocessing.html#xcode_debarcode.postprocessing.filter_pattern"><code class="docutils literal notranslate"><span class="pre">filter_pattern()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="postprocessing.html#xcode_debarcode.postprocessing.hamming_cluster"><code class="docutils literal notranslate"><span class="pre">hamming_cluster()</span></code></a></li>
-<li class="toctree-l2"><a class="reference internal" href="postprocessing.html#xcode_debarcode.postprocessing.mahal_conf"><code class="docutils literal notranslate"><span class="pre">mahal_conf()</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="preprocessing.html">preprocessing</a><ul>

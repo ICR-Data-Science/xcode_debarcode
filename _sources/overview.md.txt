@@ -69,7 +69,7 @@ xcode_debarcode uses [AnnData](https://anndata.readthedocs.io/) objects througho
 |--------|-------------|----------|
 | **PC-GMM** | Pattern-constrained GMM. Best coverage-accuracy trade-off in most situations. | Bimodal regime (recommended) |
 | **PreMessa** | Iterative top-4 selection with per-channel normalization. | Unimodal regime |
-| **GMM** | Per-channel Gaussian mixture models. Assignments not constrained to valid patterns; use for exploration only. | Exploring raw signal without validity constraints |
+| **GMM** | Per-channel Gaussian mixture models. Assignments not constrained to valid patterns; use for exploration only. | Exploring raw signal without validity constraints (bimodal regime) |
 | **Manual** | User-defined per-channel thresholds. | Custom thresholds |
 
 ## Next Steps
