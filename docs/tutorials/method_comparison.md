@@ -103,7 +103,7 @@ Coverage-accuracy curves show accuracy (fraction of correctly assigned cells amo
 :align: center
 :width: 100%
 
-Method comparison in bimodal regime (n_barcodes > 30). Left panels show 18-channel simulations; right panels show 27-channel simulations. **a1, a2)** Coverage-accuracy curves averaged across sublibrary sizes; cells ranked by raw confidence score. Solid lines show baseline, dashed lines show results after Hamming clustering. **b1, b2)** Percentage of true barcodes detected as a function of sublibrary size. **c1, c2)** Spearman correlation between predicted and true barcode counts. **d1, d2)** Accuracy at 80% coverage.
+Method comparison in bimodal regime (n_barcodes >= 30). Left panels show 18-channel simulations; right panels show 27-channel simulations. **a1, a2)** Coverage-accuracy curves averaged across sublibrary sizes; cells ranked by raw confidence score. Solid lines show baseline, dashed lines show results after Hamming clustering. **b1, b2)** Percentage of true barcodes detected as a function of sublibrary size. **c1, c2)** Spearman correlation between predicted and true barcode counts. **d1, d2)** Accuracy at 80% coverage.
 ```
 
 PC-GMM consistently outperforms PreMessa across all metrics in the bimodal regime.
