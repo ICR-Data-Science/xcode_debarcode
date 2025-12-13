@@ -123,7 +123,7 @@ Performance was evaluated on simulated datasets with known ground truth.
 :align: center
 :width: 100%
 
-Message passing performance summary across simulations. Left panels show 18-channel simulations; right panels show 27-channel simulations. **a)** F1 improvement over baseline. **b)** Barcodes detected. **c)** Spearman correlation. **d)** Beneficial vs Harmful remaps heatmap: beneficial (above zero) vs harmful (below zero) remappings across sublibrary sizes and ratio settings.
+Message passing performance summary across simulations. Left panels show 18-channel simulations; right panels show 27-channel simulations. **a1, a2)** ΔF1 heatmap: F1 improvement over baseline across sublibrary sizes and ratio settings. **b1, b2)** B/H ratio heatmap: beneficial-to-harmful remap ratio (log scale); values >1 indicate more beneficial than harmful remaps. **c1, c2)** Change in percentage of barcodes detected. **d1, d2)** Change in Spearman correlation. **e1, e2)** Beneficial (solid bars, positive) vs harmful (hatched bars, negative) remap counts.
 ```
 
 Performance strongly depends on sublibrary size. The 27-channel (2M library) configuration is much safer across all metrics.
@@ -134,7 +134,7 @@ Performance strongly depends on sublibrary size. The 27-channel (2M library) con
 :align: center
 :width: 100%
 
-Comparison of message passing and sphere methods. Left panels show 18-channel simulations (ratio=20); right panels show 27-channel simulations (ratio=2). **a)** F1 improvement. **b)** Beneficial vs Harmful remaps.
+Comparison of message passing and sphere methods. Left panels show 18-channel simulations (ratio=20); right panels show 27-channel simulations (ratio=2). **a1, a2)** ΔF1: F1 improvement over baseline. **b1, b2)** B/H ratio: beneficial-to-harmful remap ratio (log scale). **c1, c2)** Beneficial (solid bars, positive) vs harmful (hatched bars, negative) remap counts.
 ```
 
 The two methods show similar performance, with message passing slightly better overall.
